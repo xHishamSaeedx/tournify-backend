@@ -1,8 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const { supabase } = require("../config/supabase");
+const { verifyToken, ensureUserExists } = require("../middleware/auth");
 
-// GET all tournaments
+// GET all tournaments (public)
 router.get("/", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -27,7 +28,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET tournament by ID
+// GET tournament by ID (public)
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -60,8 +61,8 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// POST create new tournament
-router.post("/", async (req, res) => {
+// POST create new tournament (protected)
+router.post("/", verifyToken, ensureUserExists, async (req, res) => {
   try {
     const {
       name,
@@ -90,6 +91,7 @@ router.post("/", async (req, res) => {
           max_participants,
           tournament_type,
           status: "upcoming",
+          created_by: req.user.id, // Add creator information
         },
       ])
       .select()
@@ -112,11 +114,28 @@ router.post("/", async (req, res) => {
   }
 });
 
-// PUT update tournament
-router.put("/:id", async (req, res) => {
+// PUT update tournament (protected)
+router.put("/:id", verifyToken, ensureUserExists, async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+
+    // Optional: Check if user is the creator or has admin rights
+    const { data: existingTournament, error: fetchError } = await supabase
+      .from("tournaments")
+      .select("created_by")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    if (existingTournament?.created_by !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: "Unauthorized",
+        message: "You can only update tournaments you created",
+      });
+    }
 
     const { data, error } = await supabase
       .from("tournaments")
@@ -149,10 +168,28 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE tournament
-router.delete("/:id", async (req, res) => {
+// DELETE tournament (protected)
+router.delete("/:id", verifyToken, ensureUserExists, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Optional: Check if user is the creator or has admin rights
+    const { data: existingTournament, error: fetchError } = await supabase
+      .from("tournaments")
+      .select("created_by")
+      .eq("id", id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    if (existingTournament?.created_by !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: "Unauthorized",
+        message: "You can only delete tournaments you created",
+      });
+    }
+
     const { error } = await supabase.from("tournaments").delete().eq("id", id);
 
     if (error) throw error;
