@@ -91,6 +91,10 @@ const PORT = process.env.PORT || 3001;
 const tournamentRoutes = require("./routes/tournaments");
 const userRoutes = require("./routes/users");
 const matchRoutes = require("./routes/matches");
+const playerRoutes = require("./routes/players");
+
+// Import Supabase config
+const { supabase } = require("./config/supabase");
 
 // Rate limiting
 const limiter = rateLimit({
@@ -121,6 +125,7 @@ app.get("/", (req, res) => {
       tournaments: "/api/tournaments",
       users: "/api/users",
       matches: "/api/matches",
+      players: "/api/players",
       auth: "/auth/verify"
     }
   });
@@ -139,6 +144,7 @@ app.get("/health", (req, res) => {
 app.use("/api/tournaments", tournamentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/matches", matchRoutes);
+app.use("/api/players", playerRoutes);
 
 // 🔐 Verify token route
 app.post('/auth/verify', async (req, res) => {
