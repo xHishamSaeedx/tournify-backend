@@ -227,7 +227,6 @@ router.put("/:id", async (req, res) => {
         DOB,
         valo_id: valo_id.trim(),
         VPA: VPA.trim(),
-        updated_at: new Date().toISOString(),
       })
       .eq("player_id", id)
       .select()

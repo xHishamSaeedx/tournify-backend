@@ -92,6 +92,7 @@ const tournamentRoutes = require("./routes/tournaments");
 const userRoutes = require("./routes/users");
 const matchRoutes = require("./routes/matches");
 const playerRoutes = require("./routes/players");
+const userRoleRoutes = require("./routes/user_roles");
 
 // Import Supabase config
 const { supabase } = require("./config/supabase");
@@ -126,6 +127,7 @@ app.get("/", (req, res) => {
       users: "/api/users",
       matches: "/api/matches",
       players: "/api/players",
+      user_roles: "/api/user-roles",
       auth: "/auth/verify"
     }
   });
@@ -145,6 +147,7 @@ app.use("/api/tournaments", tournamentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/players", playerRoutes);
+app.use("/api/user-roles", userRoleRoutes);
 
 // 🔐 Verify token route
 app.post('/auth/verify', async (req, res) => {
@@ -181,56 +184,107 @@ app.post('/auth/verify', async (req, res) => {
     if (userData?.id) {
       console.log('✅ Token verified successfully for user:', userData.email);
       
-      // Create or update user in your database
+      // Check if player exists and create if needed
+      let existingPlayer = null;
+      let playerCreated = false;
+      
       try {
-        const { data: existingUser, error: fetchError } = await supabase
-          .from('users')
+        // First, check if player record exists
+        const { data: playerData, error: fetchError } = await supabase
+          .from('players')
           .select('*')
-          .eq('id', userData.id)
+          .eq('player_id', userData.id)
           .single();
 
         if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows returned
-          console.error('❌ Error fetching user:', fetchError);
+          console.error('❌ Error fetching player:', {
+            message: fetchError.message,
+            code: fetchError.code,
+            details: fetchError.details,
+            hint: fetchError.hint
+          });
         }
 
-        if (!existingUser) {
-          // Create new user in database
-          const { data: newUser, error: insertError } = await supabase
-            .from('users')
+        existingPlayer = playerData;
+
+        if (!existingPlayer) {
+          console.log('ℹ️ No player record found for user:', userData.email);
+          console.log('🔄 Creating new player record...');
+          
+          // Create new player record with basic info
+          const { data: newPlayer, error: insertError } = await supabase
+            .from('players')
             .insert([{
-              id: userData.id,
-              email: userData.email,
+              player_id: userData.id,
+              display_name: userData.user_metadata?.full_name || userData.email.split('@')[0],
               username: userData.user_metadata?.full_name || userData.email.split('@')[0],
-              full_name: userData.user_metadata?.full_name,
-              avatar_url: userData.user_metadata?.avatar_url,
-              is_active: true
+              DOB: '2000-01-01', // Default DOB - user can update later
+              valo_id: 'TBD', // Placeholder - user must update
+              VPA: 'TBD' // Placeholder - user must update
             }])
             .select()
             .single();
 
           if (insertError) {
-            console.error('❌ Error creating user:', insertError);
+            console.error('❌ Error creating player:', {
+              message: insertError.message,
+              code: insertError.code,
+              details: insertError.details,
+              hint: insertError.hint
+            });
           } else {
-            console.log('✅ New user created:', newUser.email);
+            console.log('✅ New player record created:', newPlayer.display_name);
+            existingPlayer = newPlayer;
+            playerCreated = true;
           }
         } else {
-          // Update existing user
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({
-              email: userData.email,
-              full_name: userData.user_metadata?.full_name || existingUser.full_name,
-              avatar_url: userData.user_metadata?.avatar_url || existingUser.avatar_url,
-              is_active: true
-            })
-            .eq('id', userData.id);
-
-          if (updateError) {
-            console.error('❌ Error updating user:', updateError);
-          } else {
-            console.log('✅ User updated:', userData.email);
-          }
+          console.log('✅ Player record found:', existingPlayer.display_name);
         }
+
+        // Check and assign user role
+        const { data: existingRole, error: roleFetchError } = await supabase
+          .from('user_roles')
+          .select('*')
+          .eq('user_id', userData.id)
+          .eq('role_name', 'player')
+          .single();
+
+        if (roleFetchError && roleFetchError.code !== 'PGRST116') {
+          console.error('❌ Error fetching user role:', {
+            message: roleFetchError.message,
+            code: roleFetchError.code,
+            details: roleFetchError.details,
+            hint: roleFetchError.hint
+          });
+        }
+
+        if (!existingRole) {
+          console.log('🔄 Assigning default player role...');
+          
+          // Assign default player role
+          const { data: newRole, error: roleInsertError } = await supabase
+            .from('user_roles')
+            .insert([{
+              user_id: userData.id,
+              role_name: 'player'
+            }])
+            .select()
+            .single();
+
+          if (roleInsertError) {
+            console.error('❌ Error assigning role:', {
+              message: roleInsertError.message,
+              code: roleInsertError.code,
+              details: roleInsertError.details,
+              hint: roleInsertError.hint
+            });
+          } else {
+            console.log('✅ Player role assigned successfully');
+          }
+        } else {
+          console.log('✅ Player role already assigned');
+        }
+
       } catch (dbError) {
         console.error('❌ Database operation failed:', dbError);
         // Don't fail the auth verification if DB operations fail
@@ -244,6 +298,19 @@ app.post('/auth/verify', async (req, res) => {
           full_name: userData.user_metadata?.full_name,
           avatar_url: userData.user_metadata?.avatar_url,
           verified_at: new Date().toISOString()
+        },
+        player: existingPlayer ? {
+          player_id: existingPlayer.player_id,
+          display_name: existingPlayer.display_name,
+          username: existingPlayer.username,
+          profile_complete: existingPlayer.valo_id !== 'TBD' && existingPlayer.VPA !== 'TBD',
+          profile_created: playerCreated,
+          needs_setup: existingPlayer.valo_id === 'TBD' || existingPlayer.VPA === 'TBD'
+        } : {
+          profile_complete: false,
+          profile_created: false,
+          needs_setup: true,
+          message: "Player profile creation failed. Please try again."
         }
       });
     } else {
