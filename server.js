@@ -93,6 +93,8 @@ const userRoutes = require("./routes/users");
 const matchRoutes = require("./routes/matches");
 const playerRoutes = require("./routes/players");
 const userRoleRoutes = require("./routes/user_roles");
+const hostApplicationRoutes = require("./routes/host_applications");
+const adminRoutes = require("./routes/admin");
 
 // Import Supabase config
 const { supabase } = require("./config/supabase");
@@ -121,15 +123,17 @@ app.get("/", (req, res) => {
     status: "OK",
     message: "Tournify Backend Server is running",
     timestamp: new Date().toISOString(),
-    endpoints: {
-      health: "/health",
-      tournaments: "/api/tournaments",
-      users: "/api/users",
-      matches: "/api/matches",
-      players: "/api/players",
-      user_roles: "/api/user-roles",
-      auth: "/auth/verify"
-    }
+          endpoints: {
+        health: "/health",
+        tournaments: "/api/tournaments",
+        users: "/api/users",
+        matches: "/api/matches",
+        players: "/api/players",
+        user_roles: "/api/user-roles",
+        host_applications: "/api/apply-host",
+        admin: "/api/admin",
+        auth: "/auth/verify"
+      }
   });
 });
 
@@ -148,6 +152,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/players", playerRoutes);
 app.use("/api/user-roles", userRoleRoutes);
+app.use("/api", hostApplicationRoutes);
+app.use("/api/admin", adminRoutes);
 
 // 🔐 Verify token route
 app.post('/auth/verify', async (req, res) => {
@@ -246,7 +252,7 @@ app.post('/auth/verify', async (req, res) => {
           .from('user_roles')
           .select('*')
           .eq('user_id', userData.id)
-          .eq('role_name', 'player')
+          .eq('user_role', 'player')
           .single();
 
         if (roleFetchError && roleFetchError.code !== 'PGRST116') {
@@ -266,7 +272,8 @@ app.post('/auth/verify', async (req, res) => {
             .from('user_roles')
             .insert([{
               user_id: userData.id,
-              role_name: 'player'
+              user_role: 'player',
+              user_email: userData.email
             }])
             .select()
             .single();

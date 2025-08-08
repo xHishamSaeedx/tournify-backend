@@ -9,7 +9,7 @@ router.get('/:userId', async (req, res) => {
     
     const { data: roles, error } = await supabase
       .from('user_roles')
-      .select('role_name')
+      .select('user_role')
       .eq('user_id', userId);
 
     if (error) {
@@ -17,7 +17,7 @@ router.get('/:userId', async (req, res) => {
       return res.status(500).json({ error: 'Failed to fetch user roles' });
     }
 
-    res.json({ roles: roles.map(r => r.role_name) });
+    res.json({ roles: roles.map(r => r.user_role) });
   } catch (err) {
     console.error('Error in get user roles:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -28,9 +28,9 @@ router.get('/:userId', async (req, res) => {
 router.post('/:userId/roles', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { role_name } = req.body;
+    const { user_role, user_email } = req.body;
 
-    if (!role_name) {
+    if (!user_role) {
       return res.status(400).json({ error: 'Role name is required' });
     }
 
@@ -38,7 +38,8 @@ router.post('/:userId/roles', async (req, res) => {
       .from('user_roles')
       .insert([{
         user_id: userId,
-        role_name: role_name
+        user_role: user_role,
+        user_email: user_email
       }])
       .select()
       .single();
@@ -64,7 +65,7 @@ router.delete('/:userId/roles/:roleName', async (req, res) => {
       .from('user_roles')
       .delete()
       .eq('user_id', userId)
-      .eq('role_name', roleName);
+      .eq('user_role', roleName);
 
     if (error) {
       console.error('Error removing role:', error);
