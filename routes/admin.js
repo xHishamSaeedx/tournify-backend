@@ -55,6 +55,7 @@ router.get('/current-hosts', verifyToken, requireAdmin, async (req, res) => {
         user_id,
         user_email,
         user_role,
+        game,
         created_at
       `)
       .eq('user_role', 'host')
@@ -96,6 +97,7 @@ router.get('/pending-applications', verifyToken, requireAdmin, async (req, res) 
         youtube_channel,
         experience,
         motivation,
+        game,
         created_at
       `)
       .order('created_at', { ascending: false });
@@ -124,7 +126,7 @@ router.get('/pending-applications', verifyToken, requireAdmin, async (req, res) 
 // POST /api/admin/approve-application - Approve a host application
 router.post('/approve-application', verifyToken, requireAdmin, async (req, res) => {
   try {
-    const { applicationId } = req.body;
+    const { applicationId, game } = req.body;
 
     if (!applicationId) {
       return res.status(400).json({ 
@@ -148,13 +150,14 @@ router.post('/approve-application', verifyToken, requireAdmin, async (req, res) 
     }
 
     // Start a transaction-like operation
-    // 1. Update user_roles to set user_role to 'host'
+    // 1. Update user_roles to set user_role to 'host' and include game
     const { error: roleError } = await supabase
       .from('user_roles')
       .upsert({
         user_id: application.user_id,
         user_email: application.user_email,
-        user_role: 'host'
+        user_role: 'host',
+        game: game || application.game // Use provided game or fallback to application game
       });
 
     if (roleError) {
@@ -179,7 +182,7 @@ router.post('/approve-application', verifyToken, requireAdmin, async (req, res) 
       });
     }
 
-    console.log(`✅ Application ${applicationId} approved for user ${application.user_email}`);
+    console.log(`✅ Application ${applicationId} approved for user ${application.user_email} with game: ${game || application.game}`);
     res.json({ 
       success: true, 
       message: 'Application approved successfully',

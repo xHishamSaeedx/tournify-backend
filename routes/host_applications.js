@@ -6,7 +6,7 @@ const { verifyToken } = require("../middleware/auth");
 // POST /api/apply-host - Submit host application
 router.post("/apply-host", verifyToken, async (req, res) => {
   try {
-    const { youtube_channel, experience, motivation } = req.body;
+    const { youtube_channel, experience, motivation, game } = req.body;
     const userId = req.user.id;
     const userEmail = req.user.email;
 
@@ -55,7 +55,8 @@ router.post("/apply-host", verifyToken, async (req, res) => {
       user_email: userEmail,
       youtube_channel: youtube_channel || null,
       experience: experience,
-      motivation: motivation
+      motivation: motivation,
+      game: game || null
     });
 
     const { data, error } = await supabase
@@ -66,7 +67,8 @@ router.post("/apply-host", verifyToken, async (req, res) => {
           user_email: userEmail,
           youtube_channel: youtube_channel || null,
           experience: experience,
-          motivation: motivation
+          motivation: motivation,
+          game: game || null
         }
       ])
       .select()
@@ -97,6 +99,7 @@ router.post("/apply-host", verifyToken, async (req, res) => {
         youtube_channel: data.youtube_channel,
         experience: data.experience,
         motivation: data.motivation,
+        game: data.game,
         created_at: data.created_at
       }
     });
