@@ -28,6 +28,43 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET tournaments by host ID (protected)
+router.get("/host/:hostId", verifyToken, ensureUserExists, async (req, res) => {
+  try {
+    const { hostId } = req.params;
+
+    // Check if the user is requesting their own tournaments or has admin rights
+    if (hostId !== (req.user.player_id || req.user.id)) {
+      return res.status(403).json({
+        success: false,
+        error: "Unauthorized",
+        message: "You can only view your own tournaments",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("valorant_deathmatch_rooms")
+      .select("*")
+      .eq("host_id", hostId)
+      .order("match_start_time", { ascending: false });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      data,
+      count: data.length,
+    });
+  } catch (error) {
+    console.error("Error fetching host tournaments:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch host tournaments",
+      message: error.message,
+    });
+  }
+});
+
 // GET tournament by ID (public)
 router.get("/:id", async (req, res) => {
   try {
