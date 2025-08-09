@@ -126,8 +126,17 @@ router.post("/", async (req, res) => {
       token ? `${token.substring(0, 20)}...` : "No token"
     );
 
-    const { player_id, display_name, username, DOB, valo_name, valo_tag, VPA } =
-      req.body;
+    const {
+      player_id,
+      display_name,
+      username,
+      DOB,
+      valo_name,
+      valo_tag,
+      VPA,
+      platform,
+      region,
+    } = req.body;
 
     if (
       !player_id ||
@@ -136,12 +145,14 @@ router.post("/", async (req, res) => {
       !DOB ||
       !valo_name ||
       !valo_tag ||
-      !VPA
+      !VPA ||
+      !platform ||
+      !region
     ) {
       return res.status(400).json({
         success: false,
         error:
-          "All fields are required: player_id, display_name, username, DOB, valo_name, valo_tag, VPA",
+          "All fields are required: player_id, display_name, username, DOB, valo_name, valo_tag, VPA, platform, region",
       });
     }
 
@@ -153,6 +164,8 @@ router.post("/", async (req, res) => {
       valo_name,
       valo_tag,
       VPA,
+      platform,
+      region,
     });
 
     // Check if player already exists
@@ -191,6 +204,8 @@ router.post("/", async (req, res) => {
           valo_name: valo_name.trim(),
           valo_tag: valo_tag.trim(),
           VPA: VPA.trim(),
+          platform,
+          region,
         },
       ])
       .select()
@@ -243,13 +258,31 @@ router.put("/:id", async (req, res) => {
     );
 
     const { id } = req.params;
-    const { display_name, username, DOB, valo_name, valo_tag, VPA } = req.body;
+    const {
+      display_name,
+      username,
+      DOB,
+      valo_name,
+      valo_tag,
+      VPA,
+      platform,
+      region,
+    } = req.body;
 
-    if (!display_name || !username || !DOB || !valo_name || !valo_tag || !VPA) {
+    if (
+      !display_name ||
+      !username ||
+      !DOB ||
+      !valo_name ||
+      !valo_tag ||
+      !VPA ||
+      !platform ||
+      !region
+    ) {
       return res.status(400).json({
         success: false,
         error:
-          "All fields are required: display_name, username, DOB, valo_name, valo_tag, VPA",
+          "All fields are required: display_name, username, DOB, valo_name, valo_tag, VPA, platform, region",
       });
     }
 
@@ -261,6 +294,8 @@ router.put("/:id", async (req, res) => {
       valo_name,
       valo_tag,
       VPA,
+      platform,
+      region,
     });
 
     console.log("💾 PUT - Attempting to update player in database...");
@@ -273,6 +308,8 @@ router.put("/:id", async (req, res) => {
         valo_name: valo_name.trim(),
         valo_tag: valo_tag.trim(),
         VPA: VPA.trim(),
+        platform,
+        region,
       })
       .eq("player_id", id)
       .select()
