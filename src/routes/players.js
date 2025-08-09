@@ -32,22 +32,28 @@ router.get("/:id", async (req, res) => {
   try {
     // Log the authorization header
     const authHeader = req.headers.authorization;
-    console.log('🔐 GET - Authorization header received:', authHeader ? 'Present' : 'Missing');
-    
+    console.log(
+      "🔐 GET - Authorization header received:",
+      authHeader ? "Present" : "Missing"
+    );
+
     if (!authHeader) {
       return res.status(401).json({
         success: false,
         error: "Authorization header is required",
-        message: "No authorization token provided"
+        message: "No authorization token provided",
       });
     }
 
-    const token = authHeader.split(' ')[1];
-    console.log('🎫 GET - Token extracted:', token ? `${token.substring(0, 20)}...` : 'No token');
-    
+    const token = authHeader.split(" ")[1];
+    console.log(
+      "🎫 GET - Token extracted:",
+      token ? `${token.substring(0, 20)}...` : "No token"
+    );
+
     const { id } = req.params;
-    console.log('🔍 GET - Looking for player with ID:', id);
-    
+    console.log("🔍 GET - Looking for player with ID:", id);
+
     const { data, error } = await supabase
       .from("players")
       .select("*")
@@ -55,19 +61,32 @@ router.get("/:id", async (req, res) => {
       .single();
 
     if (error) {
-      console.error('❌ GET - Error fetching player:', error);
+      console.error("❌ GET - Error fetching player:", error);
+
+      // Handle the case where no player is found (PGRST116 error)
+      if (error.code === "PGRST116") {
+        console.log("⚠️ GET - Player not found for ID:", id);
+        return res.status(404).json({
+          success: false,
+          error: "Player not found",
+          message: "No player record exists for this user",
+        });
+      }
+
+      // For other errors, throw them
       throw error;
     }
 
     if (!data) {
-      console.log('⚠️ GET - Player not found for ID:', id);
+      console.log("⚠️ GET - Player not found for ID:", id);
       return res.status(404).json({
         success: false,
         error: "Player not found",
+        message: "No player record exists for this user",
       });
     }
 
-    console.log('✅ GET - Player found:', data);
+    console.log("✅ GET - Player found:", data);
     res.json({
       success: true,
       data,
@@ -87,53 +106,60 @@ router.post("/", async (req, res) => {
   try {
     // Log the authorization header
     const authHeader = req.headers.authorization;
-    console.log('🔐 Authorization header received:', authHeader ? 'Present' : 'Missing');
-    console.log('📋 Full headers:', req.headers);
-    
+    console.log(
+      "🔐 Authorization header received:",
+      authHeader ? "Present" : "Missing"
+    );
+    console.log("📋 Full headers:", req.headers);
+
     if (!authHeader) {
       return res.status(401).json({
         success: false,
         error: "Authorization header is required",
-        message: "No authorization token provided"
+        message: "No authorization token provided",
       });
     }
 
-    const token = authHeader.split(' ')[1];
-    console.log('🎫 Token extracted:', token ? `${token.substring(0, 20)}...` : 'No token');
-    
+    const token = authHeader.split(" ")[1];
+    console.log(
+      "🎫 Token extracted:",
+      token ? `${token.substring(0, 20)}...` : "No token"
+    );
+
     const { player_id, display_name, username, DOB, valo_id, VPA } = req.body;
 
     if (!player_id || !display_name || !username || !DOB || !valo_id || !VPA) {
       return res.status(400).json({
         success: false,
-        error: "All fields are required: player_id, display_name, username, DOB, valo_id, VPA",
+        error:
+          "All fields are required: player_id, display_name, username, DOB, valo_id, VPA",
       });
     }
 
-    console.log('📝 Player data received:', {
+    console.log("📝 Player data received:", {
       player_id,
       display_name,
       username,
       DOB,
       valo_id,
-      VPA
+      VPA,
     });
 
     // Check if player already exists
-    console.log('🔍 Checking if player already exists for ID:', player_id);
+    console.log("🔍 Checking if player already exists for ID:", player_id);
     const { data: existingPlayer, error: checkError } = await supabase
       .from("players")
       .select("*")
       .eq("player_id", player_id)
       .single();
 
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error('❌ Error checking existing player:', checkError);
+    if (checkError && checkError.code !== "PGRST116") {
+      console.error("❌ Error checking existing player:", checkError);
       throw checkError;
     }
 
     if (existingPlayer) {
-      console.log('⚠️ Player already exists:', existingPlayer);
+      console.log("⚠️ Player already exists:", existingPlayer);
       return res.status(409).json({
         success: false,
         error: "Player already exists",
@@ -141,9 +167,9 @@ router.post("/", async (req, res) => {
       });
     }
 
-    console.log('✅ No existing player found, proceeding with creation');
+    console.log("✅ No existing player found, proceeding with creation");
 
-    console.log('💾 Attempting to insert player into database...');
+    console.log("💾 Attempting to insert player into database...");
     const { data, error } = await supabase
       .from("players")
       .insert([
@@ -160,11 +186,11 @@ router.post("/", async (req, res) => {
       .single();
 
     if (error) {
-      console.error('❌ Error inserting player into database:', error);
+      console.error("❌ Error inserting player into database:", error);
       throw error;
     }
 
-    console.log('✅ Player successfully inserted:', data);
+    console.log("✅ Player successfully inserted:", data);
 
     res.status(201).json({
       success: true,
@@ -186,39 +212,46 @@ router.put("/:id", async (req, res) => {
   try {
     // Log the authorization header
     const authHeader = req.headers.authorization;
-    console.log('🔐 PUT - Authorization header received:', authHeader ? 'Present' : 'Missing');
-    
+    console.log(
+      "🔐 PUT - Authorization header received:",
+      authHeader ? "Present" : "Missing"
+    );
+
     if (!authHeader) {
       return res.status(401).json({
         success: false,
         error: "Authorization header is required",
-        message: "No authorization token provided"
+        message: "No authorization token provided",
       });
     }
 
-    const token = authHeader.split(' ')[1];
-    console.log('🎫 PUT - Token extracted:', token ? `${token.substring(0, 20)}...` : 'No token');
-    
+    const token = authHeader.split(" ")[1];
+    console.log(
+      "🎫 PUT - Token extracted:",
+      token ? `${token.substring(0, 20)}...` : "No token"
+    );
+
     const { id } = req.params;
     const { display_name, username, DOB, valo_id, VPA } = req.body;
 
     if (!display_name || !username || !DOB || !valo_id || !VPA) {
       return res.status(400).json({
         success: false,
-        error: "All fields are required: display_name, username, DOB, valo_id, VPA",
+        error:
+          "All fields are required: display_name, username, DOB, valo_id, VPA",
       });
     }
 
-    console.log('📝 PUT - Player update data received:', {
+    console.log("📝 PUT - Player update data received:", {
       id,
       display_name,
       username,
       DOB,
       valo_id,
-      VPA
+      VPA,
     });
 
-    console.log('💾 PUT - Attempting to update player in database...');
+    console.log("💾 PUT - Attempting to update player in database...");
     const { data, error } = await supabase
       .from("players")
       .update({
@@ -233,19 +266,19 @@ router.put("/:id", async (req, res) => {
       .single();
 
     if (error) {
-      console.error('❌ PUT - Error updating player in database:', error);
+      console.error("❌ PUT - Error updating player in database:", error);
       throw error;
     }
 
     if (!data) {
-      console.log('⚠️ PUT - Player not found for ID:', id);
+      console.log("⚠️ PUT - Player not found for ID:", id);
       return res.status(404).json({
         success: false,
         error: "Player not found",
       });
     }
 
-    console.log('✅ PUT - Player successfully updated:', data);
+    console.log("✅ PUT - Player successfully updated:", data);
     res.json({
       success: true,
       data,
@@ -296,4 +329,4 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;
