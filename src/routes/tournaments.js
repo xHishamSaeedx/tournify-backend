@@ -7,7 +7,7 @@ const { verifyToken, ensureUserExists } = require("../middleware/auth");
 router.get("/", async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from("tournaments")
+      .from("valorant_deathmatch_rooms")
       .select("*")
       .order("created_at", { ascending: false });
 
@@ -33,7 +33,7 @@ router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const { data, error } = await supabase
-      .from("tournaments")
+      .from("valorant_deathmatch_rooms")
       .select("*")
       .eq("id", id)
       .single();
@@ -66,18 +66,16 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
   try {
     const {
       name,
-      description,
-      start_date,
-      end_date,
-      max_participants,
-      tournament_type,
+      capacity,
       joining_fee,
-      first_prize_percentage,
-      second_prize_percentage,
-      third_prize_percentage,
+      prize_first_pct,
+      prize_second_pct,
+      prize_third_pct,
       host_percentage,
       match_start_time,
       party_join_time,
+      platform,
+      region,
       host_id,
     } = req.body;
 
@@ -88,28 +86,43 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
       });
     }
 
+    // Calculate match_result_time (15 minutes after match_start_time)
+    const matchStartTime = new Date(match_start_time);
+    const matchResultTime = new Date(matchStartTime.getTime() + 15 * 60 * 1000);
+
+    // Convert percentages to decimal format (e.g., 50 -> 0.5)
+    const prizeFirstPct = parseFloat(prize_first_pct) / 100;
+    const prizeSecondPct = parseFloat(prize_second_pct) / 100;
+    const prizeThirdPct = parseFloat(prize_third_pct) / 100;
+    const hostPercentage = parseFloat(host_percentage) / 100;
+
+    const tournamentData = {
+      name,
+      capacity: parseInt(capacity),
+      prize_first_pct: prizeFirstPct,
+      prize_second_pct: prizeSecondPct,
+      prize_third_pct: prizeThirdPct,
+      party_join_time: party_join_time,
+      match_start_time: match_start_time,
+      prize_pool: null, // Leave empty, will be updated later
+      joining_fee: parseFloat(joining_fee),
+      host_id: host_id || req.user.player_id || req.user.id,
+      host_percentage: hostPercentage,
+      match_result_time: matchResultTime.toISOString(),
+      platform: platform,
+      region: region,
+    };
+
+    console.log("Attempting to create tournament with data:", tournamentData);
+    console.log("User info:", {
+      player_id: req.user.player_id,
+      id: req.user.id,
+      email: req.user.email,
+    });
+
     const { data, error } = await supabase
-      .from("tournaments")
-      .insert([
-        {
-          name,
-          description,
-          start_date,
-          end_date,
-          max_participants,
-          tournament_type,
-          joining_fee,
-          first_prize_percentage,
-          second_prize_percentage,
-          third_prize_percentage,
-          host_percentage,
-          match_start_time,
-          party_join_time,
-          host_id: host_id || req.user.id, // Use provided host_id or fallback to user.id
-          status: "upcoming",
-          created_by: req.user.id, // Add creator information
-        },
-      ])
+      .from("valorant_deathmatch_rooms")
+      .insert([tournamentData])
       .select()
       .single();
 
@@ -122,10 +135,17 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating tournament:", error);
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
     res.status(500).json({
       success: false,
       error: "Failed to create tournament",
-      message: error.message,
+      message: error.message || "Unknown error occurred",
+      details: error.details || error.hint || "No additional details available",
     });
   }
 });
@@ -136,16 +156,16 @@ router.put("/:id", verifyToken, ensureUserExists, async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    // Optional: Check if user is the creator or has admin rights
+    // Optional: Check if user is the host or has admin rights
     const { data: existingTournament, error: fetchError } = await supabase
-      .from("tournaments")
-      .select("created_by")
+      .from("valorant_deathmatch_rooms")
+      .select("host_id")
       .eq("id", id)
       .single();
 
     if (fetchError) throw fetchError;
 
-    if (existingTournament?.created_by !== req.user.id) {
+    if (existingTournament?.host_id !== (req.user.player_id || req.user.id)) {
       return res.status(403).json({
         success: false,
         error: "Unauthorized",
@@ -154,7 +174,7 @@ router.put("/:id", verifyToken, ensureUserExists, async (req, res) => {
     }
 
     const { data, error } = await supabase
-      .from("tournaments")
+      .from("valorant_deathmatch_rooms")
       .update(updateData)
       .eq("id", id)
       .select()
@@ -189,16 +209,16 @@ router.delete("/:id", verifyToken, ensureUserExists, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Optional: Check if user is the creator or has admin rights
+    // Optional: Check if user is the host or has admin rights
     const { data: existingTournament, error: fetchError } = await supabase
-      .from("tournaments")
-      .select("created_by")
+      .from("valorant_deathmatch_rooms")
+      .select("host_id")
       .eq("id", id)
       .single();
 
     if (fetchError) throw fetchError;
 
-    if (existingTournament?.created_by !== req.user.id) {
+    if (existingTournament?.host_id !== (req.user.player_id || req.user.id)) {
       return res.status(403).json({
         success: false,
         error: "Unauthorized",
@@ -206,7 +226,10 @@ router.delete("/:id", verifyToken, ensureUserExists, async (req, res) => {
       });
     }
 
-    const { error } = await supabase.from("tournaments").delete().eq("id", id);
+    const { error } = await supabase
+      .from("valorant_deathmatch_rooms")
+      .delete()
+      .eq("id", id);
 
     if (error) throw error;
 
