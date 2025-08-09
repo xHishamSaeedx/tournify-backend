@@ -126,13 +126,22 @@ router.post("/", async (req, res) => {
       token ? `${token.substring(0, 20)}...` : "No token"
     );
 
-    const { player_id, display_name, username, DOB, valo_id, VPA } = req.body;
+    const { player_id, display_name, username, DOB, valo_name, valo_tag, VPA } =
+      req.body;
 
-    if (!player_id || !display_name || !username || !DOB || !valo_id || !VPA) {
+    if (
+      !player_id ||
+      !display_name ||
+      !username ||
+      !DOB ||
+      !valo_name ||
+      !valo_tag ||
+      !VPA
+    ) {
       return res.status(400).json({
         success: false,
         error:
-          "All fields are required: player_id, display_name, username, DOB, valo_id, VPA",
+          "All fields are required: player_id, display_name, username, DOB, valo_name, valo_tag, VPA",
       });
     }
 
@@ -141,7 +150,8 @@ router.post("/", async (req, res) => {
       display_name,
       username,
       DOB,
-      valo_id,
+      valo_name,
+      valo_tag,
       VPA,
     });
 
@@ -178,7 +188,8 @@ router.post("/", async (req, res) => {
           display_name: display_name.trim(),
           username: username.trim(),
           DOB,
-          valo_id: valo_id.trim(),
+          valo_name: valo_name.trim(),
+          valo_tag: valo_tag.trim(),
           VPA: VPA.trim(),
         },
       ])
@@ -232,13 +243,13 @@ router.put("/:id", async (req, res) => {
     );
 
     const { id } = req.params;
-    const { display_name, username, DOB, valo_id, VPA } = req.body;
+    const { display_name, username, DOB, valo_name, valo_tag, VPA } = req.body;
 
-    if (!display_name || !username || !DOB || !valo_id || !VPA) {
+    if (!display_name || !username || !DOB || !valo_name || !valo_tag || !VPA) {
       return res.status(400).json({
         success: false,
         error:
-          "All fields are required: display_name, username, DOB, valo_id, VPA",
+          "All fields are required: display_name, username, DOB, valo_name, valo_tag, VPA",
       });
     }
 
@@ -247,7 +258,8 @@ router.put("/:id", async (req, res) => {
       display_name,
       username,
       DOB,
-      valo_id,
+      valo_name,
+      valo_tag,
       VPA,
     });
 
@@ -258,7 +270,8 @@ router.put("/:id", async (req, res) => {
         display_name: display_name.trim(),
         username: username.trim(),
         DOB,
-        valo_id: valo_id.trim(),
+        valo_name: valo_name.trim(),
+        valo_tag: valo_tag.trim(),
         VPA: VPA.trim(),
       })
       .eq("player_id", id)

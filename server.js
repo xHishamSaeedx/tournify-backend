@@ -295,11 +295,13 @@ app.post("/auth/verify", async (req, res) => {
               display_name: existingPlayer.display_name,
               username: existingPlayer.username,
               profile_complete:
-                existingPlayer.valo_id !== "TBD" &&
+                existingPlayer.valo_name !== "TBD" &&
+                existingPlayer.valo_tag !== "TBD" &&
                 existingPlayer.VPA !== "TBD",
               profile_created: false, // Not created in this session
               needs_setup:
-                existingPlayer.valo_id === "TBD" ||
+                existingPlayer.valo_name === "TBD" ||
+                existingPlayer.valo_tag === "TBD" ||
                 existingPlayer.VPA === "TBD",
             }
           : {
