@@ -71,6 +71,14 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
       end_date,
       max_participants,
       tournament_type,
+      joining_fee,
+      first_prize_percentage,
+      second_prize_percentage,
+      third_prize_percentage,
+      host_percentage,
+      match_start_time,
+      party_join_time,
+      host_id,
     } = req.body;
 
     if (!name) {
@@ -90,6 +98,14 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
           end_date,
           max_participants,
           tournament_type,
+          joining_fee,
+          first_prize_percentage,
+          second_prize_percentage,
+          third_prize_percentage,
+          host_percentage,
+          match_start_time,
+          party_join_time,
+          host_id: host_id || req.user.id, // Use provided host_id or fallback to user.id
           status: "upcoming",
           created_by: req.user.id, // Add creator information
         },
