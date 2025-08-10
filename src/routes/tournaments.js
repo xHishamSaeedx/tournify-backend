@@ -133,6 +133,13 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
     const prizeThirdPct = parseFloat(prize_third_pct) / 100;
     const hostPercentage = parseFloat(host_percentage) / 100;
 
+    // Calculate prize pool: (0.7 + (0.15-host_percentage))*capacity*joining_fee
+    const prizePool = Math.ceil(
+      (0.7 + (0.15 - hostPercentage)) *
+        parseInt(capacity) *
+        parseFloat(joining_fee)
+    );
+
     const tournamentData = {
       name,
       capacity: parseInt(capacity),
@@ -141,7 +148,7 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
       prize_third_pct: prizeThirdPct,
       party_join_time: party_join_time,
       match_start_time: match_start_time,
-      prize_pool: null, // Leave empty, will be updated later
+      prize_pool: prizePool,
       joining_fee: parseFloat(joining_fee),
       host_id: host_id || req.user.player_id || req.user.id,
       host_percentage: hostPercentage,
