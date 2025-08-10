@@ -13,10 +13,34 @@ router.get("/", async (req, res) => {
 
     if (error) throw error;
 
+    // Fetch host information for each tournament
+    const tournamentsWithHosts = await Promise.all(
+      data.map(async (tournament) => {
+        if (tournament.host_id) {
+          const { data: hostData, error: hostError } = await supabase
+            .from("players")
+            .select("player_id, username, display_name")
+            .eq("player_id", tournament.host_id)
+            .single();
+
+          if (!hostError && hostData) {
+            return {
+              ...tournament,
+              host: hostData,
+            };
+          }
+        }
+        return {
+          ...tournament,
+          host: null,
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data,
-      count: data.length,
+      data: tournamentsWithHosts,
+      count: tournamentsWithHosts.length,
     });
   } catch (error) {
     console.error("Error fetching tournaments:", error);
@@ -50,10 +74,34 @@ router.get("/host/:hostId", verifyToken, ensureUserExists, async (req, res) => {
 
     if (error) throw error;
 
+    // Fetch host information for each tournament
+    const tournamentsWithHosts = await Promise.all(
+      data.map(async (tournament) => {
+        if (tournament.host_id) {
+          const { data: hostData, error: hostError } = await supabase
+            .from("players")
+            .select("player_id, username, display_name")
+            .eq("player_id", tournament.host_id)
+            .single();
+
+          if (!hostError && hostData) {
+            return {
+              ...tournament,
+              host: hostData,
+            };
+          }
+        }
+        return {
+          ...tournament,
+          host: null,
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data,
-      count: data.length,
+      data: tournamentsWithHosts,
+      count: tournamentsWithHosts.length,
     });
   } catch (error) {
     console.error("Error fetching host tournaments:", error);
@@ -84,9 +132,23 @@ router.get("/:id", async (req, res) => {
       });
     }
 
+    // Fetch host information for the tournament
+    let tournamentWithHost = { ...data, host: null };
+    if (data.host_id) {
+      const { data: hostData, error: hostError } = await supabase
+        .from("players")
+        .select("player_id, username, display_name")
+        .eq("player_id", data.host_id)
+        .single();
+
+      if (!hostError && hostData) {
+        tournamentWithHost.host = hostData;
+      }
+    }
+
     res.json({
       success: true,
-      data,
+      data: tournamentWithHost,
     });
   } catch (error) {
     console.error("Error fetching tournament:", error);

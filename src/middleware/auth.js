@@ -102,31 +102,9 @@ const ensureUserExists = async (req, res, next) => {
     }
 
     if (!existingUser) {
-      // Create user in database
-      const { data: newUser, error: insertError } = await supabase
-        .from("players")
-        .insert([
-          {
-            player_id: req.user.id,
-            email: req.user.email,
-            username: req.user.full_name || req.user.email.split("@")[0],
-            display_name: req.user.full_name || req.user.email.split("@")[0],
-            avatar_url: req.user.avatar_url,
-            is_active: true,
-          },
-        ])
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error("Error creating user:", insertError);
-        return res.status(500).json({
-          success: false,
-          error: "Failed to create user profile",
-        });
-      }
-
-      req.user = { ...req.user, ...newUser };
+      // Don't automatically create player record - user should fill out player form first
+      console.log("ℹ️ No player record for:", req.user.email);
+      req.user.player_id = req.user.id;
     } else {
       req.user = { ...req.user, ...existingUser };
     }
