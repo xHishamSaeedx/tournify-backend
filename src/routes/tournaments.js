@@ -120,7 +120,7 @@ router.get("/:id", async (req, res) => {
     const { data, error } = await supabase
       .from("valorant_deathmatch_rooms")
       .select("*")
-      .eq("id", id)
+      .eq("tournament_id", id)
       .single();
 
     if (error) throw error;
@@ -266,7 +266,7 @@ router.put("/:id", verifyToken, ensureUserExists, async (req, res) => {
     const { data: existingTournament, error: fetchError } = await supabase
       .from("valorant_deathmatch_rooms")
       .select("host_id")
-      .eq("id", id)
+      .eq("tournament_id", id)
       .single();
 
     if (fetchError) throw fetchError;
@@ -282,7 +282,7 @@ router.put("/:id", verifyToken, ensureUserExists, async (req, res) => {
     const { data, error } = await supabase
       .from("valorant_deathmatch_rooms")
       .update(updateData)
-      .eq("id", id)
+      .eq("tournament_id", id)
       .select()
       .single();
 
@@ -319,7 +319,7 @@ router.delete("/:id", verifyToken, ensureUserExists, async (req, res) => {
     const { data: existingTournament, error: fetchError } = await supabase
       .from("valorant_deathmatch_rooms")
       .select("host_id")
-      .eq("id", id)
+      .eq("tournament_id", id)
       .single();
 
     if (fetchError) throw fetchError;
@@ -335,7 +335,7 @@ router.delete("/:id", verifyToken, ensureUserExists, async (req, res) => {
     const { error } = await supabase
       .from("valorant_deathmatch_rooms")
       .delete()
-      .eq("id", id);
+      .eq("tournament_id", id);
 
     if (error) throw error;
 
@@ -348,6 +348,388 @@ router.delete("/:id", verifyToken, ensureUserExists, async (req, res) => {
     res.status(500).json({
       success: false,
       error: "Failed to delete tournament",
+      message: error.message,
+    });
+  }
+});
+
+// POST join tournament (protected)
+router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
+  try {
+    const { id: tournamentId } = req.params;
+    const playerId = req.user.player_id || req.user.id;
+
+    // Check if user has a complete profile
+    const { data: playerData, error: playerError } = await supabase
+      .from("players")
+      .select("username, valo_name, valo_tag, VPA")
+      .eq("player_id", playerId)
+      .single();
+
+    if (playerError || !playerData) {
+      return res.status(400).json({
+        success: false,
+        error: "Profile incomplete",
+        message: "You must complete your profile before joining tournaments",
+      });
+    }
+
+    // Check if required fields are filled
+    if (
+      !playerData.username ||
+      !playerData.valo_name ||
+      !playerData.valo_tag ||
+      !playerData.VPA
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: "Profile incomplete",
+        message:
+          "Please fill in your username, Valorant ID, and VPA before joining tournaments",
+      });
+    }
+
+    // Check if tournament exists and is not full
+    const { data: tournament, error: tournamentError } = await supabase
+      .from("valorant_deathmatch_rooms")
+      .select("tournament_id, capacity, match_start_time")
+      .eq("tournament_id", tournamentId)
+      .single();
+
+    if (tournamentError || !tournament) {
+      return res.status(404).json({
+        success: false,
+        error: "Tournament not found",
+        message: "The tournament you're trying to join doesn't exist",
+      });
+    }
+
+    // Check if tournament hasn't started yet (at least 5 minutes before start)
+    const now = new Date();
+    const matchStartTime = new Date(tournament.match_start_time);
+    const fiveMinutesBefore = new Date(
+      matchStartTime.getTime() - 5 * 60 * 1000
+    );
+
+    if (now >= fiveMinutesBefore) {
+      return res.status(400).json({
+        success: false,
+        error: "Tournament closed",
+        message:
+          "Tournament registration is closed. It starts in less than 5 minutes.",
+      });
+    }
+
+    // Check if user is already a participant
+    const { data: existingParticipant, error: participantError } =
+      await supabase
+        .from("valorant_deathmatch_participants")
+        .select("player_id")
+        .eq("player_id", playerId)
+        .eq("room_id", tournamentId)
+        .single();
+
+    if (participantError && participantError.code !== "PGRST116") {
+      throw participantError;
+    }
+
+    if (existingParticipant) {
+      return res.status(400).json({
+        success: false,
+        error: "Already joined",
+        message: "You are already registered for this tournament",
+      });
+    }
+
+    // Check current participant count
+    const { count: currentParticipants, error: countError } = await supabase
+      .from("valorant_deathmatch_participants")
+      .select("*", { count: "exact", head: true })
+      .eq("room_id", tournamentId);
+
+    if (countError) throw countError;
+
+    if (currentParticipants >= tournament.capacity) {
+      return res.status(400).json({
+        success: false,
+        error: "Tournament full",
+        message: "This tournament is already full",
+      });
+    }
+
+    // Add participant to tournament
+    const { data: newParticipant, error: joinError } = await supabase
+      .from("valorant_deathmatch_participants")
+      .insert({
+        player_id: playerId,
+        room_id: tournamentId,
+      })
+      .select()
+      .single();
+
+    if (joinError) throw joinError;
+
+    // Update tournament current_players count
+    const { error: updateError } = await supabase
+      .from("valorant_deathmatch_rooms")
+      .update({
+        current_players: currentParticipants + 1,
+      })
+      .eq("tournament_id", tournamentId);
+
+    if (updateError) {
+      console.error("Error updating tournament player count:", updateError);
+      // Don't fail the request if this fails, but log it
+    }
+
+    res.json({
+      success: true,
+      data: newParticipant,
+      message: "Successfully joined tournament",
+    });
+  } catch (error) {
+    console.error("Error joining tournament:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to join tournament",
+      message: error.message,
+    });
+  }
+});
+
+// POST leave tournament (protected)
+router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
+  try {
+    const { id: tournamentId } = req.params;
+    const playerId = req.user.player_id || req.user.id;
+
+    // Check if user is a participant
+    const { data: participant, error: participantError } = await supabase
+      .from("valorant_deathmatch_participants")
+      .select("player_id")
+      .eq("player_id", playerId)
+      .eq("room_id", tournamentId)
+      .single();
+
+    if (participantError || !participant) {
+      return res.status(400).json({
+        success: false,
+        error: "Not a participant",
+        message: "You are not registered for this tournament",
+      });
+    }
+
+    // Remove participant from tournament
+    const { error: leaveError } = await supabase
+      .from("valorant_deathmatch_participants")
+      .delete()
+      .eq("player_id", playerId)
+      .eq("room_id", tournamentId);
+
+    if (leaveError) throw leaveError;
+
+    // Update tournament current_players count
+    const { count: currentParticipants, error: countError } = await supabase
+      .from("valorant_deathmatch_participants")
+      .select("*", { count: "exact", head: true })
+      .eq("room_id", tournamentId);
+
+    if (!countError) {
+      const { error: updateError } = await supabase
+        .from("valorant_deathmatch_rooms")
+        .update({
+          current_players: currentParticipants,
+        })
+        .eq("tournament_id", tournamentId);
+
+      if (updateError) {
+        console.error("Error updating tournament player count:", updateError);
+        // Don't fail the request if this fails, but log it
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Successfully left tournament",
+    });
+  } catch (error) {
+    console.error("Error leaving tournament:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to leave tournament",
+      message: error.message,
+    });
+  }
+});
+
+// GET tournament participants (protected)
+router.get(
+  "/:id/participants",
+  verifyToken,
+  ensureUserExists,
+  async (req, res) => {
+    try {
+      const { id: tournamentId } = req.params;
+
+      const { data: participants, error } = await supabase
+        .from("valorant_deathmatch_participants")
+        .select(
+          `
+        player_id,
+        room_id,
+        joined_at,
+        players!inner(
+          player_id,
+          username,
+          display_name,
+          valo_name,
+          valo_tag,
+          VPA
+        )
+      `
+        )
+        .eq("room_id", tournamentId)
+        .order("joined_at", { ascending: true });
+
+      if (error) throw error;
+
+      res.json({
+        success: true,
+        data: participants,
+        count: participants.length,
+      });
+    } catch (error) {
+      console.error("Error fetching tournament participants:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch participants",
+        message: error.message,
+      });
+    }
+  }
+);
+
+// GET user's tournament participation status (protected)
+router.get(
+  "/:id/participation",
+  verifyToken,
+  ensureUserExists,
+  async (req, res) => {
+    try {
+      const { id: tournamentId } = req.params;
+      const playerId = req.user.player_id || req.user.id;
+
+      const { data: participant, error } = await supabase
+        .from("valorant_deathmatch_participants")
+        .select("player_id, joined_at")
+        .eq("player_id", playerId)
+        .eq("room_id", tournamentId)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        throw error;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          isParticipant: !!participant,
+          participant: participant || null,
+        },
+      });
+    } catch (error) {
+      console.error("Error checking participation status:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to check participation status",
+        message: error.message,
+      });
+    }
+  }
+);
+
+// GET user's joined tournaments (protected)
+router.get("/joined/me", verifyToken, ensureUserExists, async (req, res) => {
+  try {
+    const playerId = req.user.player_id || req.user.id;
+
+    // First, get all room_ids where the user is a participant
+    const { data: participantData, error: participantError } = await supabase
+      .from("valorant_deathmatch_participants")
+      .select("room_id, joined_at")
+      .eq("player_id", playerId)
+      .order("joined_at", { ascending: false });
+
+    if (participantError) throw participantError;
+
+    if (!participantData || participantData.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+        count: 0,
+      });
+    }
+
+    // Get the room_ids
+    const roomIds = participantData.map((p) => p.room_id);
+
+    // Get tournament details for those rooms
+    const { data: tournaments, error: tournamentError } = await supabase
+      .from("valorant_deathmatch_rooms")
+      .select("*")
+      .in("tournament_id", roomIds)
+      .order("match_start_time", { ascending: false });
+
+    if (tournamentError) throw tournamentError;
+
+    // Create a map of room_id to joined_at for quick lookup
+    const joinedAtMap = {};
+    participantData.forEach((p) => {
+      joinedAtMap[p.room_id] = p.joined_at;
+    });
+
+    // Transform the data to match the expected format and fetch host information
+    const transformedTournaments = await Promise.all(
+      tournaments.map(async (tournament) => {
+        let host = null;
+        if (tournament.host_id) {
+          const { data: hostData, error: hostError } = await supabase
+            .from("players")
+            .select("player_id, username, display_name")
+            .eq("player_id", tournament.host_id)
+            .single();
+
+          if (!hostError && hostData) {
+            host = hostData;
+          }
+        }
+
+        return {
+          tournament_id: tournament.tournament_id,
+          name: tournament.name,
+          match_start_time: tournament.match_start_time,
+          prize_pool: tournament.prize_pool,
+          joining_fee: tournament.joining_fee,
+          capacity: tournament.capacity,
+          current_players: tournament.current_players,
+          platform: tournament.platform,
+          region: tournament.region,
+          host: host,
+          joined_at: joinedAtMap[tournament.tournament_id],
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: transformedTournaments,
+      count: transformedTournaments.length,
+    });
+  } catch (error) {
+    console.error("Error fetching joined tournaments:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch joined tournaments",
       message: error.message,
     });
   }
