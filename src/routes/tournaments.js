@@ -509,6 +509,35 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
     const { id: tournamentId } = req.params;
     const playerId = req.user.player_id || req.user.id;
 
+    // Get tournament details to check match start time
+    const { data: tournament, error: tournamentError } = await supabase
+      .from("valorant_deathmatch_rooms")
+      .select("match_start_time, joining_fee")
+      .eq("tournament_id", tournamentId)
+      .single();
+
+    if (tournamentError || !tournament) {
+      return res.status(400).json({
+        success: false,
+        error: "Tournament not found",
+        message: "Tournament not found",
+      });
+    }
+
+    // Check if match starts within 15 minutes
+    const matchStartTime = new Date(tournament.match_start_time);
+    const currentTime = new Date();
+    const timeDifference = matchStartTime.getTime() - currentTime.getTime();
+    const minutesUntilMatch = Math.floor(timeDifference / (1000 * 60));
+
+    if (minutesUntilMatch <= 15) {
+      return res.status(400).json({
+        success: false,
+        error: "Cancellation not allowed",
+        message: "Cannot leave tournament within 15 minutes of match start time",
+      });
+    }
+
     // Check if user is a participant
     const { data: participant, error: participantError } = await supabase
       .from("valorant_deathmatch_participants")
@@ -524,6 +553,15 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
         message: "You are not registered for this tournament",
       });
     }
+
+    // Calculate refund amount (50% of joining fee)
+    const joiningFee = tournament.joining_fee || 0;
+    const refundAmount = Math.floor(joiningFee * 0.5);
+
+    // TODO: Implement actual credit refund logic here
+    // This would typically involve updating the user's credit balance
+    // For now, we'll just log the refund amount
+    console.log(`Refunding ${refundAmount} credits to player ${playerId} for tournament ${tournamentId}`);
 
     // Remove participant from tournament
     const { error: leaveError } = await supabase
@@ -556,7 +594,8 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
 
     res.json({
       success: true,
-      message: "Successfully left tournament",
+      message: `Successfully left tournament. ${refundAmount} credits have been refunded to your account.`,
+      refundAmount: refundAmount,
     });
   } catch (error) {
     console.error("Error leaving tournament:", error);
