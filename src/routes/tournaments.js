@@ -186,6 +186,36 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
       });
     }
 
+    // Check for 20-minute gap between tournaments for the same host
+    const currentHostId = host_id || req.user.player_id || req.user.id;
+    const newMatchStartTime = new Date(match_start_time);
+
+    // Get all existing tournaments by this host
+    const { data: existingTournaments, error: existingError } = await supabase
+      .from("valorant_deathmatch_rooms")
+      .select("match_start_time")
+      .eq("host_id", currentHostId);
+
+    if (existingError) throw existingError;
+
+    // Check if there's a conflict with existing tournaments (20-minute gap required)
+    for (const tournament of existingTournaments) {
+      const existingStartTime = new Date(tournament.match_start_time);
+      const timeDifference = Math.abs(
+        newMatchStartTime.getTime() - existingStartTime.getTime()
+      );
+      const minutesDifference = timeDifference / (1000 * 60);
+
+      if (minutesDifference < 20) {
+        return res.status(400).json({
+          success: false,
+          error: "Tournament time conflict",
+          message:
+            "There must be at least a 20-minute gap between your tournaments. Please choose a different start time.",
+        });
+      }
+    }
+
     // Calculate match_result_time (15 minutes after match_start_time)
     const matchStartTime = new Date(match_start_time);
     const matchResultTime = new Date(matchStartTime.getTime() + 15 * 60 * 1000);
@@ -534,7 +564,8 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "Cancellation not allowed",
-        message: "Cannot leave tournament within 15 minutes of match start time",
+        message:
+          "Cannot leave tournament within 15 minutes of match start time",
       });
     }
 
@@ -561,7 +592,9 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
     // TODO: Implement actual credit refund logic here
     // This would typically involve updating the user's credit balance
     // For now, we'll just log the refund amount
-    console.log(`Refunding ${refundAmount} credits to player ${playerId} for tournament ${tournamentId}`);
+    console.log(
+      `Refunding ${refundAmount} credits to player ${playerId} for tournament ${tournamentId}`
+    );
 
     // Remove participant from tournament
     const { error: leaveError } = await supabase
