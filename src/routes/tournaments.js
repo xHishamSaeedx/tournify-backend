@@ -34,7 +34,7 @@ router.get("/", async (req, res) => {
         let host = null;
         if (tournament.host_id) {
           const { data: hostData, error: hostError } = await supabase
-            .from("players")
+            .from("users")
             .select("player_id, username, display_name")
             .eq("player_id", tournament.host_id)
             .single();
@@ -110,7 +110,7 @@ router.get("/host/:hostId", verifyToken, ensureUserExists, async (req, res) => {
         let host = null;
         if (tournament.host_id) {
           const { data: hostData, error: hostError } = await supabase
-            .from("players")
+            .from("users")
             .select("player_id, username, display_name")
             .eq("player_id", tournament.host_id)
             .single();
@@ -180,7 +180,7 @@ router.get("/:id", async (req, res) => {
     };
     if (data.host_id) {
       const { data: hostData, error: hostError } = await supabase
-        .from("players")
+        .from("users")
         .select("player_id, username, display_name")
         .eq("player_id", data.host_id)
         .single();
@@ -441,7 +441,7 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
 
     // Check if user has a complete profile
     const { data: playerData, error: playerError } = await supabase
-      .from("players")
+      .from("users")
       .select("username, valo_name, valo_tag, VPA")
       .eq("player_id", playerId)
       .single();
@@ -753,7 +753,7 @@ router.get(
         player_id,
         room_id,
         joined_at,
-        players!inner(
+        users!inner(
           player_id,
           username,
           display_name,
@@ -884,7 +884,7 @@ router.get("/joined/me", verifyToken, ensureUserExists, async (req, res) => {
         let host = null;
         if (tournament.host_id) {
           const { data: hostData, error: hostError } = await supabase
-            .from("players")
+            .from("users")
             .select("player_id, username, display_name")
             .eq("player_id", tournament.host_id)
             .single();

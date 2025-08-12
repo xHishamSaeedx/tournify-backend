@@ -2,11 +2,11 @@ const express = require("express");
 const router = express.Router();
 const { supabase } = require("../config/supabase");
 
-// GET all players
+// GET all users
 router.get("/", async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from("players")
+      .from("users")
       .select("*")
       .order("created_at", { ascending: false });
 
@@ -18,10 +18,10 @@ router.get("/", async (req, res) => {
       count: data.length,
     });
   } catch (error) {
-    console.error("Error fetching players:", error);
+    console.error("Error fetching users:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to fetch players",
+      error: "Failed to fetch users",
       message: error.message,
     });
   }
@@ -52,10 +52,10 @@ router.get("/:id", async (req, res) => {
     );
 
     const { id } = req.params;
-    console.log("🔍 GET - Looking for player with ID:", id);
+    console.log("🔍 GET - Looking for user with ID:", id);
 
     const { data, error } = await supabase
-      .from("players")
+      .from("users")
       .select("*")
       .eq("player_id", id)
       .single();
@@ -65,11 +65,11 @@ router.get("/:id", async (req, res) => {
 
       // Handle the case where no player is found (PGRST116 error)
       if (error.code === "PGRST116") {
-        console.log("⚠️ GET - Player not found for ID:", id);
+        console.log("⚠️ GET - User not found for ID:", id);
         return res.status(404).json({
           success: false,
-          error: "Player not found",
-          message: "No player record exists for this user",
+          error: "User not found",
+          message: "No user record exists for this user",
         });
       }
 
@@ -78,24 +78,24 @@ router.get("/:id", async (req, res) => {
     }
 
     if (!data) {
-      console.log("⚠️ GET - Player not found for ID:", id);
+      console.log("⚠️ GET - User not found for ID:", id);
       return res.status(404).json({
         success: false,
-        error: "Player not found",
-        message: "No player record exists for this user",
+        error: "User not found",
+        message: "No user record exists for this user",
       });
     }
 
-    console.log("✅ GET - Player found:", data);
+    console.log("✅ GET - User found:", data);
     res.json({
       success: true,
       data,
     });
   } catch (error) {
-    console.error("Error fetching player:", error);
+    console.error("Error fetching user:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to fetch player",
+      error: "Failed to fetch user",
       message: error.message,
     });
   }
@@ -156,7 +156,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    console.log("📝 Player data received:", {
+    console.log("📝 User data received:", {
       player_id,
       display_name,
       username,
@@ -168,33 +168,33 @@ router.post("/", async (req, res) => {
       region,
     });
 
-    // Check if player already exists
-    console.log("🔍 Checking if player already exists for ID:", player_id);
+    // Check if user already exists
+    console.log("🔍 Checking if user already exists for ID:", player_id);
     const { data: existingPlayer, error: checkError } = await supabase
-      .from("players")
+      .from("users")
       .select("*")
       .eq("player_id", player_id)
       .single();
 
     if (checkError && checkError.code !== "PGRST116") {
-      console.error("❌ Error checking existing player:", checkError);
+      console.error("❌ Error checking existing user:", checkError);
       throw checkError;
     }
 
     if (existingPlayer) {
-      console.log("⚠️ Player already exists:", existingPlayer);
+      console.log("⚠️ User already exists:", existingPlayer);
       return res.status(409).json({
         success: false,
-        error: "Player already exists",
-        message: "A player with this ID already exists",
+        error: "User already exists",
+        message: "A user with this ID already exists",
       });
     }
 
-    console.log("✅ No existing player found, proceeding with creation");
+    console.log("✅ No existing user found, proceeding with creation");
 
-    console.log("💾 Attempting to insert player into database...");
+    console.log("💾 Attempting to insert user into database...");
     const { data, error } = await supabase
-      .from("players")
+      .from("users")
       .insert([
         {
           player_id,
@@ -212,22 +212,22 @@ router.post("/", async (req, res) => {
       .single();
 
     if (error) {
-      console.error("❌ Error inserting player into database:", error);
+      console.error("❌ Error inserting user into database:", error);
       throw error;
     }
 
-    console.log("✅ Player successfully inserted:", data);
+    console.log("✅ User successfully inserted:", data);
 
     res.status(201).json({
       success: true,
       data,
-      message: "Player created successfully",
+      message: "User created successfully",
     });
   } catch (error) {
-    console.error("Error creating player:", error);
+    console.error("Error creating user:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to create player",
+      error: "Failed to create user",
       message: error.message,
     });
   }
@@ -286,7 +286,7 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    console.log("📝 PUT - Player update data received:", {
+    console.log("📝 PUT - User update data received:", {
       id,
       display_name,
       username,
@@ -298,9 +298,9 @@ router.put("/:id", async (req, res) => {
       region,
     });
 
-    console.log("💾 PUT - Attempting to update player in database...");
+    console.log("💾 PUT - Attempting to update user in database...");
     const { data, error } = await supabase
-      .from("players")
+      .from("users")
       .update({
         display_name: display_name.trim(),
         username: username.trim(),
@@ -316,29 +316,29 @@ router.put("/:id", async (req, res) => {
       .single();
 
     if (error) {
-      console.error("❌ PUT - Error updating player in database:", error);
+      console.error("❌ PUT - Error updating user in database:", error);
       throw error;
     }
 
     if (!data) {
-      console.log("⚠️ PUT - Player not found for ID:", id);
+      console.log("⚠️ PUT - User not found for ID:", id);
       return res.status(404).json({
         success: false,
-        error: "Player not found",
+        error: "User not found",
       });
     }
 
-    console.log("✅ PUT - Player successfully updated:", data);
+    console.log("✅ PUT - User successfully updated:", data);
     res.json({
       success: true,
       data,
-      message: "Player updated successfully",
+      message: "User updated successfully",
     });
   } catch (error) {
-    console.error("Error updating player:", error);
+    console.error("Error updating user:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to update player",
+      error: "Failed to update user",
       message: error.message,
     });
   }
@@ -350,7 +350,7 @@ router.delete("/:id", async (req, res) => {
     const { id } = req.params;
 
     const { data, error } = await supabase
-      .from("players")
+      .from("users")
       .delete()
       .eq("player_id", id)
       .select()
@@ -361,19 +361,19 @@ router.delete("/:id", async (req, res) => {
     if (!data) {
       return res.status(404).json({
         success: false,
-        error: "Player not found",
+        error: "User not found",
       });
     }
 
     res.json({
       success: true,
-      message: "Player deleted successfully",
+      message: "User deleted successfully",
     });
   } catch (error) {
-    console.error("Error deleting player:", error);
+    console.error("Error deleting user:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to delete player",
+      error: "Failed to delete user",
       message: error.message,
     });
   }

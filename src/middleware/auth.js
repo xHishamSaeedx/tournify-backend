@@ -53,7 +53,7 @@ const verifyToken = async (req, res, next) => {
     // Optional: Get user from database for additional data
     try {
       const { data: dbUser, error } = await supabase
-        .from("players")
+        .from("users")
         .select("*")
         .eq("player_id", userData.id)
         .single();
@@ -88,7 +88,7 @@ const ensureUserExists = async (req, res, next) => {
 
     // Check if user exists in database
     const { data: existingUser, error } = await supabase
-      .from("players")
+      .from("users")
       .select("*")
       .eq("player_id", req.user.id)
       .single();

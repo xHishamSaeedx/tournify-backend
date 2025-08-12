@@ -117,18 +117,18 @@ app.get("/", (req, res) => {
     status: "OK",
     message: "Tournify Backend Server is running",
     timestamp: new Date().toISOString(),
-          endpoints: {
-        health: "/health",
-        tournaments: "/api/tournaments",
-        users: "/api/users",
-        matches: "/api/matches",
-        players: "/api/players",
-        user_roles: "/api/user-roles",
-        host_applications: "/api/apply-host",
-        admin: "/api/admin",
-        wallets: "/api/wallets",
-        auth: "/auth/verify",
-      },
+    endpoints: {
+      health: "/health",
+      tournaments: "/api/tournaments",
+      users: "/api/users",
+      matches: "/api/matches",
+      players: "/api/players",
+      user_roles: "/api/user-roles",
+      host_applications: "/api/apply-host",
+      admin: "/api/admin",
+      wallets: "/api/wallets",
+      auth: "/auth/verify",
+    },
   });
 });
 
@@ -195,7 +195,7 @@ app.post("/auth/verify", async (req, res) => {
       try {
         // Check if player record exists
         const { data: playerData, error: fetchError } = await supabase
-          .from("players")
+          .from("users")
           .select("*")
           .eq("player_id", userData.id)
           .single();
