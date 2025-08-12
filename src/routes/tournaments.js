@@ -13,9 +13,25 @@ router.get("/", async (req, res) => {
 
     if (error) throw error;
 
-    // Fetch host information for each tournament
+    // Fetch host information and participant count for each tournament
     const tournamentsWithHosts = await Promise.all(
       data.map(async (tournament) => {
+        // Get actual participant count for this tournament
+        const { count: currentParticipants, error: countError } = await supabase
+          .from("valorant_deathmatch_participants")
+          .select("*", { count: "exact", head: true })
+          .eq("room_id", tournament.tournament_id);
+
+        if (countError) {
+          console.error(
+            "Error counting participants for tournament",
+            tournament.tournament_id,
+            ":",
+            countError
+          );
+        }
+
+        let host = null;
         if (tournament.host_id) {
           const { data: hostData, error: hostError } = await supabase
             .from("players")
@@ -24,15 +40,14 @@ router.get("/", async (req, res) => {
             .single();
 
           if (!hostError && hostData) {
-            return {
-              ...tournament,
-              host: hostData,
-            };
+            host = hostData;
           }
         }
+
         return {
           ...tournament,
-          host: null,
+          host: host,
+          current_players: currentParticipants || 0,
         };
       })
     );
@@ -74,9 +89,25 @@ router.get("/host/:hostId", verifyToken, ensureUserExists, async (req, res) => {
 
     if (error) throw error;
 
-    // Fetch host information for each tournament
+    // Fetch host information and participant count for each tournament
     const tournamentsWithHosts = await Promise.all(
       data.map(async (tournament) => {
+        // Get actual participant count for this tournament
+        const { count: currentParticipants, error: countError } = await supabase
+          .from("valorant_deathmatch_participants")
+          .select("*", { count: "exact", head: true })
+          .eq("room_id", tournament.tournament_id);
+
+        if (countError) {
+          console.error(
+            "Error counting participants for tournament",
+            tournament.tournament_id,
+            ":",
+            countError
+          );
+        }
+
+        let host = null;
         if (tournament.host_id) {
           const { data: hostData, error: hostError } = await supabase
             .from("players")
@@ -85,15 +116,14 @@ router.get("/host/:hostId", verifyToken, ensureUserExists, async (req, res) => {
             .single();
 
           if (!hostError && hostData) {
-            return {
-              ...tournament,
-              host: hostData,
-            };
+            host = hostData;
           }
         }
+
         return {
           ...tournament,
-          host: null,
+          host: host,
+          current_players: currentParticipants || 0,
         };
       })
     );
@@ -132,8 +162,22 @@ router.get("/:id", async (req, res) => {
       });
     }
 
+    // Get actual participant count
+    const { count: currentParticipants, error: countError } = await supabase
+      .from("valorant_deathmatch_participants")
+      .select("*", { count: "exact", head: true })
+      .eq("room_id", id);
+
+    if (countError) {
+      console.error("Error counting participants:", countError);
+    }
+
     // Fetch host information for the tournament
-    let tournamentWithHost = { ...data, host: null };
+    let tournamentWithHost = {
+      ...data,
+      host: null,
+      current_players: currentParticipants || 0,
+    };
     if (data.host_id) {
       const { data: hostData, error: hostError } = await supabase
         .from("players")
@@ -221,9 +265,9 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
     const matchResultTime = new Date(matchStartTime.getTime() + 15 * 60 * 1000);
 
     // Convert percentages to decimal format (e.g., 50 -> 0.5)
-    const prizeFirstPct = parseFloat(prize_first_pct) / 100;
-    const prizeSecondPct = parseFloat(prize_second_pct) / 100;
-    const prizeThirdPct = parseFloat(prize_third_pct) / 100;
+    const prizeFirstPct = parseFloat(prize_first_pct);
+    const prizeSecondPct = parseFloat(prize_second_pct);
+    const prizeThirdPct = parseFloat(prize_third_pct);
     const hostPercentage = parseFloat(host_percentage) / 100;
 
     // Calculate prize pool: (0.7 + (0.15-host_percentage))*capacity*joining_fee + 90% of host_contribution
@@ -769,6 +813,21 @@ router.get("/joined/me", verifyToken, ensureUserExists, async (req, res) => {
     // Transform the data to match the expected format and fetch host information
     const transformedTournaments = await Promise.all(
       tournaments.map(async (tournament) => {
+        // Get actual participant count for this tournament
+        const { count: currentParticipants, error: countError } = await supabase
+          .from("valorant_deathmatch_participants")
+          .select("*", { count: "exact", head: true })
+          .eq("room_id", tournament.tournament_id);
+
+        if (countError) {
+          console.error(
+            "Error counting participants for tournament",
+            tournament.tournament_id,
+            ":",
+            countError
+          );
+        }
+
         let host = null;
         if (tournament.host_id) {
           const { data: hostData, error: hostError } = await supabase
@@ -789,7 +848,7 @@ router.get("/joined/me", verifyToken, ensureUserExists, async (req, res) => {
           prize_pool: tournament.prize_pool,
           joining_fee: tournament.joining_fee,
           capacity: tournament.capacity,
-          current_players: tournament.current_players,
+          current_players: currentParticipants || 0,
           platform: tournament.platform,
           region: tournament.region,
           host: host,
