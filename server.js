@@ -81,7 +81,6 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
-const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
 const app = express();
@@ -99,13 +98,6 @@ const adminRoutes = require("./src/routes/admin");
 // Import Supabase config
 const { supabase } = require("./src/config/supabase");
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: "Too many requests from this IP, please try again later.",
-});
-
 // Middleware
 app.use(helmet()); // Security headers
 app.use(
@@ -115,7 +107,6 @@ app.use(
   })
 ); // Enable CORS with proper origin
 app.use(morgan("combined")); // Logging
-app.use(limiter); // Rate limiting
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
