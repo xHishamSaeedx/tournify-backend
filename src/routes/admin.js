@@ -1,96 +1,103 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { verifyToken } = require('../middleware/auth');
-const { supabase } = require('../config/supabase');
+const { verifyToken } = require("../middleware/auth");
+const { supabase } = require("../config/supabase");
 
 // Middleware to check if user is admin
 const requireAdmin = async (req, res, next) => {
   try {
-    console.log('🔐 Checking admin privileges for user:', req.user.id);
-    
+    console.log("🔐 Checking admin privileges for user:", req.user.id);
+
     const { data: userRoles, error } = await supabase
-      .from('user_roles')
-      .select('user_role')
-      .eq('user_id', req.user.id)
-      .eq('user_role', 'admin')
+      .from("user_roles")
+      .select("user_role")
+      .eq("user_id", req.user.id)
+      .eq("user_role", "admin")
       .single();
 
     if (error) {
-      console.error('❌ Error checking admin privileges:', error);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Database error checking admin privileges',
-        details: error.message
+      console.error("❌ Error checking admin privileges:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Database error checking admin privileges",
+        details: error.message,
       });
     }
 
     if (!userRoles) {
-      console.log('❌ User is not admin:', req.user.id);
-      return res.status(403).json({ 
-        success: false, 
-        error: 'Access denied. Admin privileges required.' 
+      console.log("❌ User is not admin:", req.user.id);
+      return res.status(403).json({
+        success: false,
+        error: "Access denied. Admin privileges required.",
       });
     }
 
-    console.log('✅ User is admin:', req.user.id);
+    console.log("✅ User is admin:", req.user.id);
     next();
   } catch (error) {
-    console.error('❌ Unexpected error in admin check:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error',
-      details: error.message
+    console.error("❌ Unexpected error in admin check:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      details: error.message,
     });
   }
 };
 
 // GET /api/admin/current-hosts - Get all current hosts
-router.get('/current-hosts', verifyToken, requireAdmin, async (req, res) => {
+router.get("/current-hosts", verifyToken, requireAdmin, async (req, res) => {
   try {
-    console.log('🔍 Fetching current hosts for user:', req.user.id);
-    
+    console.log("🔍 Fetching current hosts for user:", req.user.id);
+
     const { data: hosts, error } = await supabase
-      .from('user_roles')
-      .select(`
+      .from("user_roles")
+      .select(
+        `
         user_id,
         user_email,
         user_role,
         game,
         created_at
-      `)
-      .eq('user_role', 'host')
-      .order('created_at', { ascending: false });
+      `
+      )
+      .eq("user_role", "host")
+      .order("created_at", { ascending: false });
 
     if (error) {
-      console.error('❌ Supabase error fetching hosts:', error);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to fetch hosts',
-        details: error.message
+      console.error("❌ Supabase error fetching hosts:", error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to fetch hosts",
+        details: error.message,
       });
     }
 
-    console.log('✅ Successfully fetched hosts:', hosts?.length || 0);
-    res.json({ 
-      success: true, 
-      data: hosts 
+    console.log("✅ Successfully fetched hosts:", hosts?.length || 0);
+    res.json({
+      success: true,
+      data: hosts,
     });
   } catch (error) {
-    console.error('❌ Unexpected error in current-hosts:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error',
-      details: error.message
+    console.error("❌ Unexpected error in current-hosts:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
+      details: error.message,
     });
   }
 });
 
 // GET /api/admin/pending-applications - Get all pending host applications
-router.get('/pending-applications', verifyToken, requireAdmin, async (req, res) => {
-  try {
-    const { data: applications, error } = await supabase
-      .from('host_applications')
-      .select(`
+router.get(
+  "/pending-applications",
+  verifyToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { data: applications, error } = await supabase
+        .from("host_applications")
+        .select(
+          `
         id,
         user_id,
         user_email,
@@ -99,214 +106,495 @@ router.get('/pending-applications', verifyToken, requireAdmin, async (req, res) 
         motivation,
         game,
         created_at
-      `)
-      .order('created_at', { ascending: false });
+      `
+        )
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error('Error fetching applications:', error);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to fetch applications' 
+      if (error) {
+        console.error("Error fetching applications:", error);
+        return res.status(500).json({
+          success: false,
+          error: "Failed to fetch applications",
+        });
+      }
+
+      res.json({
+        success: true,
+        data: applications,
+      });
+    } catch (error) {
+      console.error("Error in pending-applications:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
       });
     }
-
-    res.json({ 
-      success: true, 
-      data: applications 
-    });
-  } catch (error) {
-    console.error('Error in pending-applications:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error' 
-    });
   }
-});
+);
 
 // POST /api/admin/approve-application - Approve a host application
-router.post('/approve-application', verifyToken, requireAdmin, async (req, res) => {
-  try {
-    const { applicationId, game } = req.body;
+router.post(
+  "/approve-application",
+  verifyToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { applicationId, game } = req.body;
 
-    if (!applicationId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Application ID is required' 
-      });
-    }
+      if (!applicationId) {
+        return res.status(400).json({
+          success: false,
+          error: "Application ID is required",
+        });
+      }
 
-    // Get the application details
-    const { data: application, error: fetchError } = await supabase
-      .from('host_applications')
-      .select('*')
-      .eq('id', applicationId)
-      .single();
+      // Get the application details
+      const { data: application, error: fetchError } = await supabase
+        .from("host_applications")
+        .select("*")
+        .eq("id", applicationId)
+        .single();
 
-    if (fetchError || !application) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Application not found' 
-      });
-    }
+      if (fetchError || !application) {
+        return res.status(404).json({
+          success: false,
+          error: "Application not found",
+        });
+      }
 
-    // Start a transaction-like operation
-    // 1. Update user_roles to set user_role to 'host' and include game
-    const { error: roleError } = await supabase
-      .from('user_roles')
-      .upsert({
+      // Get current user roles to check if user is already a host
+      const { data: existingRoles, error: roleCheckError } = await supabase
+        .from("user_roles")
+        .select("*")
+        .eq("user_id", application.user_id)
+        .eq("user_role", "host")
+        .single();
+
+      let gamesArray = [];
+      const gameToAdd = game || application.game;
+
+      if (existingRoles) {
+        // User is already a host, add the new game to existing games
+        gamesArray = existingRoles.game || [];
+        if (!gamesArray.includes(gameToAdd)) {
+          gamesArray.push(gameToAdd);
+        }
+      } else {
+        // User is not a host yet, create new host role with the game
+        gamesArray = [gameToAdd];
+      }
+
+      // Start a transaction-like operation
+      // 1. Update user_roles to set user_role to 'host' and include games as JSONB
+      const { error: roleError } = await supabase.from("user_roles").upsert({
         user_id: application.user_id,
         user_email: application.user_email,
-        user_role: 'host',
-        game: game || application.game // Use provided game or fallback to application game
+        user_role: "host",
+        game: gamesArray, // Store as JSONB array of games
       });
 
-    if (roleError) {
-      console.error('Error updating user role:', roleError);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to update user role' 
+      if (roleError) {
+        console.error("Error updating user role:", roleError);
+        return res.status(500).json({
+          success: false,
+          error: "Failed to update user role",
+        });
+      }
+
+      // 2. Delete the application from host_applications
+      const { error: deleteError } = await supabase
+        .from("host_applications")
+        .delete()
+        .eq("id", applicationId);
+
+      if (deleteError) {
+        console.error("Error deleting application:", deleteError);
+        return res.status(500).json({
+          success: false,
+          error: "Failed to delete application",
+        });
+      }
+
+      console.log(
+        `✅ Application ${applicationId} approved for user ${
+          application.user_email
+        } with games: ${gamesArray.join(", ")}`
+      );
+      res.json({
+        success: true,
+        message: "Application approved successfully",
+        data: {
+          user_email: application.user_email,
+          games: gamesArray,
+        },
+      });
+    } catch (error) {
+      console.error("Error approving application:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
       });
     }
-
-    // 2. Delete the application from host_applications
-    const { error: deleteError } = await supabase
-      .from('host_applications')
-      .delete()
-      .eq('id', applicationId);
-
-    if (deleteError) {
-      console.error('Error deleting application:', deleteError);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to delete application' 
-      });
-    }
-
-    console.log(`✅ Application ${applicationId} approved for user ${application.user_email} with game: ${game || application.game}`);
-    res.json({ 
-      success: true, 
-      message: 'Application approved successfully',
-      data: { user_email: application.user_email }
-    });
-  } catch (error) {
-    console.error('Error approving application:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error' 
-    });
   }
-});
+);
 
 // POST /api/admin/reject-application - Reject a host application
-router.post('/reject-application', verifyToken, requireAdmin, async (req, res) => {
-  try {
-    const { applicationId } = req.body;
+router.post(
+  "/reject-application",
+  verifyToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { applicationId } = req.body;
 
-    if (!applicationId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Application ID is required' 
+      if (!applicationId) {
+        return res.status(400).json({
+          success: false,
+          error: "Application ID is required",
+        });
+      }
+
+      // Get the application details for logging
+      const { data: application, error: fetchError } = await supabase
+        .from("host_applications")
+        .select("user_email")
+        .eq("id", applicationId)
+        .single();
+
+      if (fetchError || !application) {
+        return res.status(404).json({
+          success: false,
+          error: "Application not found",
+        });
+      }
+
+      // Delete the application
+      const { error: deleteError } = await supabase
+        .from("host_applications")
+        .delete()
+        .eq("id", applicationId);
+
+      if (deleteError) {
+        console.error("Error deleting application:", deleteError);
+        return res.status(500).json({
+          success: false,
+          error: "Failed to reject application",
+        });
+      }
+
+      console.log(
+        `❌ Application ${applicationId} rejected for user ${application.user_email}`
+      );
+      res.json({
+        success: true,
+        message: "Application rejected successfully",
+        data: { user_email: application.user_email },
+      });
+    } catch (error) {
+      console.error("Error rejecting application:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
       });
     }
-
-    // Get the application details for logging
-    const { data: application, error: fetchError } = await supabase
-      .from('host_applications')
-      .select('user_email')
-      .eq('id', applicationId)
-      .single();
-
-    if (fetchError || !application) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Application not found' 
-      });
-    }
-
-    // Delete the application
-    const { error: deleteError } = await supabase
-      .from('host_applications')
-      .delete()
-      .eq('id', applicationId);
-
-    if (deleteError) {
-      console.error('Error deleting application:', deleteError);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to reject application' 
-      });
-    }
-
-    console.log(`❌ Application ${applicationId} rejected for user ${application.user_email}`);
-    res.json({ 
-      success: true, 
-      message: 'Application rejected successfully',
-      data: { user_email: application.user_email }
-    });
-  } catch (error) {
-    console.error('Error rejecting application:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error' 
-    });
   }
-});
+);
 
 // POST /api/admin/remove-host - Remove a host (change role back to player)
-router.post('/remove-host', verifyToken, requireAdmin, async (req, res) => {
+router.post("/remove-host", verifyToken, requireAdmin, async (req, res) => {
   try {
     const { userId } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'User ID is required' 
+      return res.status(400).json({
+        success: false,
+        error: "User ID is required",
       });
     }
 
     // Get the user details for logging
     const { data: userRole, error: fetchError } = await supabase
-      .from('user_roles')
-      .select('user_email')
-      .eq('user_id', userId)
-      .eq('user_role', 'host')
+      .from("user_roles")
+      .select("user_email")
+      .eq("user_id", userId)
+      .eq("user_role", "host")
       .single();
 
     if (fetchError || !userRole) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Host not found' 
+      return res.status(404).json({
+        success: false,
+        error: "Host not found",
       });
     }
 
     // Update user_roles to set user_role back to 'player'
     const { error: updateError } = await supabase
-      .from('user_roles')
-      .update({ user_role: 'player' })
-      .eq('user_id', userId)
-      .eq('user_role', 'host');
+      .from("user_roles")
+      .update({ user_role: "player" })
+      .eq("user_id", userId)
+      .eq("user_role", "host");
 
     if (updateError) {
-      console.error('Error removing host:', updateError);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to remove host' 
+      console.error("Error removing host:", updateError);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to remove host",
       });
     }
 
-    console.log(`👤 Host ${userId} (${userRole.user_email}) removed and set to player`);
-    res.json({ 
-      success: true, 
-      message: 'Host removed successfully',
-      data: { user_email: userRole.user_email }
+    console.log(
+      `👤 Host ${userId} (${userRole.user_email}) removed and set to player`
+    );
+    res.json({
+      success: true,
+      message: "Host removed successfully",
+      data: { user_email: userRole.user_email },
     });
   } catch (error) {
-    console.error('Error removing host:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Internal server error' 
+    console.error("Error removing host:", error);
+    res.status(500).json({
+      success: false,
+      error: "Internal server error",
     });
   }
 });
+
+// POST /api/admin/add-game-to-host - Add a game to an existing host
+router.post(
+  "/add-game-to-host",
+  verifyToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { userId, game } = req.body;
+
+      if (!userId || !game) {
+        return res.status(400).json({
+          success: false,
+          error: "User ID and game are required",
+        });
+      }
+
+      // Get current host role
+      const { data: existingRole, error: fetchError } = await supabase
+        .from("user_roles")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("user_role", "host")
+        .single();
+
+      if (fetchError || !existingRole) {
+        return res.status(404).json({
+          success: false,
+          error: "Host role not found for this user",
+        });
+      }
+
+      // Add game to existing games array
+      let gamesArray = existingRole.game || [];
+      if (!gamesArray.includes(game)) {
+        gamesArray.push(game);
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: "User is already a host for this game",
+        });
+      }
+
+      // Update the role with new games array
+      const { error: updateError } = await supabase
+        .from("user_roles")
+        .update({ game: gamesArray })
+        .eq("user_id", userId)
+        .eq("user_role", "host");
+
+      if (updateError) {
+        console.error("Error updating host games:", updateError);
+        return res.status(500).json({
+          success: false,
+          error: "Failed to update host games",
+        });
+      }
+
+      console.log(
+        `✅ Added game '${game}' to host ${
+          existingRole.user_email
+        }. Games: ${gamesArray.join(", ")}`
+      );
+      res.json({
+        success: true,
+        message: "Game added to host successfully",
+        data: {
+          user_email: existingRole.user_email,
+          games: gamesArray,
+        },
+      });
+    } catch (error) {
+      console.error("Error adding game to host:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+      });
+    }
+  }
+);
+
+// POST /api/admin/remove-game-from-host - Remove a game from an existing host
+router.post(
+  "/remove-game-from-host",
+  verifyToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { userId, game } = req.body;
+
+      if (!userId || !game) {
+        return res.status(400).json({
+          success: false,
+          error: "User ID and game are required",
+        });
+      }
+
+      // Get current host role
+      const { data: existingRole, error: fetchError } = await supabase
+        .from("user_roles")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("user_role", "host")
+        .single();
+
+      if (fetchError || !existingRole) {
+        return res.status(404).json({
+          success: false,
+          error: "Host role not found for this user",
+        });
+      }
+
+      // Remove game from existing games array
+      let gamesArray = existingRole.game || [];
+      const gameIndex = gamesArray.indexOf(game);
+
+      if (gameIndex === -1) {
+        return res.status(400).json({
+          success: false,
+          error: "User is not a host for this game",
+        });
+      }
+
+      gamesArray.splice(gameIndex, 1);
+
+      // If no games left, remove the host role entirely
+      if (gamesArray.length === 0) {
+        const { error: deleteError } = await supabase
+          .from("user_roles")
+          .delete()
+          .eq("user_id", userId)
+          .eq("user_role", "host");
+
+        if (deleteError) {
+          console.error("Error removing host role:", deleteError);
+          return res.status(500).json({
+            success: false,
+            error: "Failed to remove host role",
+          });
+        }
+
+        console.log(
+          `✅ Removed host role from ${existingRole.user_email} (no games left)`
+        );
+        res.json({
+          success: true,
+          message: "Host role removed (no games remaining)",
+          data: {
+            user_email: existingRole.user_email,
+            games: [],
+          },
+        });
+      } else {
+        // Update the role with remaining games array
+        const { error: updateError } = await supabase
+          .from("user_roles")
+          .update({ game: gamesArray })
+          .eq("user_id", userId)
+          .eq("user_role", "host");
+
+        if (updateError) {
+          console.error("Error updating host games:", updateError);
+          return res.status(500).json({
+            success: false,
+            error: "Failed to update host games",
+          });
+        }
+
+        console.log(
+          `✅ Removed game '${game}' from host ${
+            existingRole.user_email
+          }. Remaining games: ${gamesArray.join(", ")}`
+        );
+        res.json({
+          success: true,
+          message: "Game removed from host successfully",
+          data: {
+            user_email: existingRole.user_email,
+            games: gamesArray,
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error removing game from host:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+      });
+    }
+  }
+);
+
+// GET /api/admin/host-games/:userId - Get games for a specific host
+router.get(
+  "/host-games/:userId",
+  verifyToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      const { data: hostRole, error } = await supabase
+        .from("user_roles")
+        .select("user_email, game")
+        .eq("user_id", userId)
+        .eq("user_role", "host")
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          return res.status(404).json({
+            success: false,
+            error: "Host role not found for this user",
+          });
+        }
+        console.error("Error fetching host games:", error);
+        return res.status(500).json({
+          success: false,
+          error: "Failed to fetch host games",
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          user_email: hostRole.user_email,
+          games: hostRole.game || [],
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching host games:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+      });
+    }
+  }
+);
 
 module.exports = router;
