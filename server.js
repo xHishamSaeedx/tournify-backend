@@ -94,6 +94,7 @@ const playerRoutes = require("./src/routes/players");
 const userRoleRoutes = require("./src/routes/user_roles");
 const hostApplicationRoutes = require("./src/routes/host_applications");
 const adminRoutes = require("./src/routes/admin");
+const walletRoutes = require("./src/routes/wallets");
 
 // Import Supabase config
 const { supabase } = require("./src/config/supabase");
@@ -116,17 +117,18 @@ app.get("/", (req, res) => {
     status: "OK",
     message: "Tournify Backend Server is running",
     timestamp: new Date().toISOString(),
-    endpoints: {
-      health: "/health",
-      tournaments: "/api/tournaments",
-      users: "/api/users",
-      matches: "/api/matches",
-      players: "/api/players",
-      user_roles: "/api/user-roles",
-      host_applications: "/api/apply-host",
-      admin: "/api/admin",
-      auth: "/auth/verify",
-    },
+          endpoints: {
+        health: "/health",
+        tournaments: "/api/tournaments",
+        users: "/api/users",
+        matches: "/api/matches",
+        players: "/api/players",
+        user_roles: "/api/user-roles",
+        host_applications: "/api/apply-host",
+        admin: "/api/admin",
+        wallets: "/api/wallets",
+        auth: "/auth/verify",
+      },
   });
 });
 
@@ -147,6 +149,7 @@ app.use("/api/players", playerRoutes);
 app.use("/api/user-roles", userRoleRoutes);
 app.use("/api", hostApplicationRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/wallets", walletRoutes);
 
 // 🔐 Verify token route
 app.post("/auth/verify", async (req, res) => {

@@ -633,12 +633,65 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
     const joiningFee = tournament.joining_fee || 0;
     const refundAmount = Math.floor(joiningFee * 0.5);
 
-    // TODO: Implement actual credit refund logic here
-    // This would typically involve updating the user's credit balance
-    // For now, we'll just log the refund amount
-    console.log(
-      `Refunding ${refundAmount} credits to player ${playerId} for tournament ${tournamentId}`
-    );
+    // Process refund if there's a joining fee (write directly to wallet tables)
+    if (joiningFee > 0 && refundAmount > 0) {
+      try {
+        // Create refund transaction
+        const { data: refundTx, error: txError } = await supabase
+          .from("wallet_transactions")
+          .insert([
+            {
+              user_id: playerId,
+              type: "refund",
+              amount: refundAmount,
+              description: `50% refund for leaving tournament ${tournamentId}`,
+              ref_id: tournamentId,
+              created_at: new Date().toISOString(),
+            },
+          ])
+          .select()
+          .single();
+
+        if (txError) throw txError;
+
+        // Update wallet balance (create wallet if missing)
+        let { data: currentWallet, error: fetchError } = await supabase
+          .from("user_wallets")
+          .select("balance")
+          .eq("user_id", playerId)
+          .single();
+
+        if (fetchError && fetchError.code === "PGRST116") {
+          // Create new wallet with refund amount
+          const { error: createError } = await supabase
+            .from("user_wallets")
+            .insert([
+              {
+                user_id: playerId,
+                balance: refundAmount,
+                created_at: new Date().toISOString(),
+                last_updated: new Date().toISOString(),
+              },
+            ]);
+          if (createError) throw createError;
+        } else if (fetchError) {
+          throw fetchError;
+        } else {
+          const newBalance = (currentWallet?.balance || 0) + refundAmount;
+          const { error: updateError } = await supabase
+            .from("user_wallets")
+            .update({
+              balance: newBalance,
+              last_updated: new Date().toISOString(),
+            })
+            .eq("user_id", playerId);
+          if (updateError) throw updateError;
+        }
+      } catch (refundError) {
+        console.error("Error processing refund:", refundError);
+        // Continue with leaving tournament even if refund fails
+      }
+    }
 
     // Remove participant from tournament
     const { error: leaveError } = await supabase
