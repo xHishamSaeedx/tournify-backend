@@ -54,17 +54,18 @@ router.get("/:id", async (req, res) => {
     const { id } = req.params;
     console.log("🔍 GET - Looking for user with ID:", id);
 
-    const { data, error } = await supabase
+    // First, get the user data
+    const { data: userData, error: userError } = await supabase
       .from("users")
       .select("*")
       .eq("player_id", id)
       .single();
 
-    if (error) {
-      console.error("❌ GET - Error fetching player:", error);
+    if (userError) {
+      console.error("❌ GET - Error fetching user:", userError);
 
-      // Handle the case where no player is found (PGRST116 error)
-      if (error.code === "PGRST116") {
+      // Handle the case where no user is found (PGRST116 error)
+      if (userError.code === "PGRST116") {
         console.log("⚠️ GET - User not found for ID:", id);
         return res.status(404).json({
           success: false,
@@ -74,10 +75,10 @@ router.get("/:id", async (req, res) => {
       }
 
       // For other errors, throw them
-      throw error;
+      throw userError;
     }
 
-    if (!data) {
+    if (!userData) {
       console.log("⚠️ GET - User not found for ID:", id);
       return res.status(404).json({
         success: false,
@@ -85,6 +86,21 @@ router.get("/:id", async (req, res) => {
         message: "No user record exists for this user",
       });
     }
+
+    // Then, get the Valorant data separately
+    const { data: valorantData, error: valorantError } = await supabase
+      .from("valorant_users")
+      .select("valorant_name, valorant_tag, platform, region")
+      .eq("user_id", id)
+      .single();
+
+    // Combine the data
+    const data = {
+      ...userData,
+      valorant_users: valorantError || !valorantData ? [] : [valorantData],
+    };
+
+    const error = null; // We've handled errors above
 
     console.log("✅ GET - User found:", data);
     res.json({
