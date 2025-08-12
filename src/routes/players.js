@@ -138,21 +138,11 @@ router.post("/", async (req, res) => {
       region,
     } = req.body;
 
-    if (
-      !player_id ||
-      !display_name ||
-      !username ||
-      !DOB ||
-      !valo_name ||
-      !valo_tag ||
-      !VPA ||
-      !platform ||
-      !region
-    ) {
+    if (!player_id || !display_name || !username || !DOB || !VPA) {
       return res.status(400).json({
         success: false,
         error:
-          "All fields are required: player_id, display_name, username, DOB, valo_name, valo_tag, VPA, platform, region",
+          "Required fields are: player_id, display_name, username, DOB, VPA. Valorant fields are optional.",
       });
     }
 
@@ -193,7 +183,9 @@ router.post("/", async (req, res) => {
     console.log("✅ No existing user found, proceeding with creation");
 
     console.log("💾 Attempting to insert user into database...");
-    const { data, error } = await supabase
+
+    // First, insert the user data (without Valorant fields)
+    const { data: userData, error: userError } = await supabase
       .from("users")
       .insert([
         {
@@ -201,20 +193,60 @@ router.post("/", async (req, res) => {
           display_name: display_name.trim(),
           username: username.trim(),
           DOB,
-          valo_name: valo_name.trim(),
-          valo_tag: valo_tag.trim(),
           VPA: VPA.trim(),
-          platform,
-          region,
         },
       ])
       .select()
       .single();
 
-    if (error) {
-      console.error("❌ Error inserting user into database:", error);
-      throw error;
+    if (userError) {
+      console.error("❌ Error inserting user into database:", userError);
+      throw userError;
     }
+
+    // Validate that userData exists
+    if (!userData) {
+      console.error("❌ Error: userData is null/undefined:", userData);
+      throw new Error("Failed to get user data from inserted user");
+    }
+
+    console.log(
+      "✅ User inserted successfully, using player_id as user_id:",
+      player_id
+    );
+
+    // Then, insert the Valorant data into the new table only if Valorant fields are provided
+    let valorantData = null;
+    if (valo_name && valo_tag && platform && region) {
+      const { data: valorantInsertData, error: valorantError } = await supabase
+        .from("valorant_users")
+        .insert([
+          {
+            user_id: player_id, // Use player_id (auth user ID) as user_id
+            valorant_name: valo_name.trim(),
+            valorant_tag: valo_tag.trim(),
+            platform,
+            region,
+          },
+        ])
+        .select()
+        .single();
+
+      if (valorantError) {
+        console.error("❌ Error inserting valorant data:", valorantError);
+        throw valorantError;
+      }
+
+      valorantData = valorantInsertData;
+    }
+
+    // Combine the data for response
+    const data = {
+      ...userData,
+      valorant_data: valorantData,
+    };
+
+    // Error handling is already done above for both user and valorant data
 
     console.log("✅ User successfully inserted:", data);
 
@@ -269,20 +301,11 @@ router.put("/:id", async (req, res) => {
       region,
     } = req.body;
 
-    if (
-      !display_name ||
-      !username ||
-      !DOB ||
-      !valo_name ||
-      !valo_tag ||
-      !VPA ||
-      !platform ||
-      !region
-    ) {
+    if (!display_name || !username || !DOB || !VPA) {
       return res.status(400).json({
         success: false,
         error:
-          "All fields are required: display_name, username, DOB, valo_name, valo_tag, VPA, platform, region",
+          "Required fields are: display_name, username, DOB, VPA. Valorant fields are optional.",
       });
     }
 
@@ -299,34 +322,97 @@ router.put("/:id", async (req, res) => {
     });
 
     console.log("💾 PUT - Attempting to update user in database...");
-    const { data, error } = await supabase
+
+    // First, update the user data (without Valorant fields)
+    const { data: userData, error: userError } = await supabase
       .from("users")
       .update({
         display_name: display_name.trim(),
         username: username.trim(),
         DOB,
-        valo_name: valo_name.trim(),
-        valo_tag: valo_tag.trim(),
         VPA: VPA.trim(),
-        platform,
-        region,
       })
       .eq("player_id", id)
       .select()
       .single();
 
-    if (error) {
-      console.error("❌ PUT - Error updating user in database:", error);
-      throw error;
+    if (userError) {
+      console.error("❌ PUT - Error updating user in database:", userError);
+
+      // Handle the case where no user is found (PGRST116 error)
+      if (userError.code === "PGRST116") {
+        console.log("⚠️ PUT - User not found for ID:", id);
+        return res.status(404).json({
+          success: false,
+          error: "User not found",
+          message: "No user record exists for this ID",
+        });
+      }
+
+      // For other errors, throw them
+      throw userError;
     }
 
-    if (!data) {
+    if (!userData) {
       console.log("⚠️ PUT - User not found for ID:", id);
       return res.status(404).json({
         success: false,
         error: "User not found",
+        message: "No user record exists for this ID",
       });
     }
+
+    // Validate that userData exists
+    if (!userData) {
+      console.error("❌ PUT - Error: userData is null/undefined:", userData);
+      throw new Error("Failed to get user data from updated user");
+    }
+
+    console.log("✅ PUT - User updated successfully, using id as user_id:", id);
+
+    // Then, update or insert the Valorant data only if Valorant fields are provided
+    let valorantData = null;
+    if (valo_name && valo_tag && platform && region) {
+      const { data: valorantUpsertData, error: valorantError } = await supabase
+        .from("valorant_users")
+        .upsert([
+          {
+            user_id: id, // Use id parameter (auth user ID) as user_id
+            valorant_name: valo_name.trim(),
+            valorant_tag: valo_tag.trim(),
+            platform,
+            region,
+          },
+        ])
+        .select()
+        .single();
+
+      if (valorantError) {
+        console.error("❌ PUT - Error updating valorant data:", valorantError);
+        throw valorantError;
+      }
+
+      valorantData = valorantUpsertData;
+    } else {
+      // If no Valorant data provided, delete existing Valorant record if it exists
+      const { error: deleteError } = await supabase
+        .from("valorant_users")
+        .delete()
+        .eq("user_id", id);
+
+      if (deleteError) {
+        console.error("❌ PUT - Error deleting valorant data:", deleteError);
+        // Don't throw error here as it's not critical
+      }
+    }
+
+    // Combine the data for response
+    const data = {
+      ...userData,
+      valorant_data: valorantData,
+    };
+
+    // Error handling is already done above for both user and valorant data
 
     console.log("✅ PUT - User successfully updated:", data);
     res.json({
@@ -356,12 +442,26 @@ router.delete("/:id", async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // Handle the case where no user is found (PGRST116 error)
+      if (error.code === "PGRST116") {
+        console.log("⚠️ DELETE - User not found for ID:", id);
+        return res.status(404).json({
+          success: false,
+          error: "User not found",
+          message: "No user record exists for this ID",
+        });
+      }
+
+      // For other errors, throw them
+      throw error;
+    }
 
     if (!data) {
       return res.status(404).json({
         success: false,
         error: "User not found",
+        message: "No user record exists for this ID",
       });
     }
 

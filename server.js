@@ -95,6 +95,7 @@ const userRoleRoutes = require("./src/routes/user_roles");
 const hostApplicationRoutes = require("./src/routes/host_applications");
 const adminRoutes = require("./src/routes/admin");
 const walletRoutes = require("./src/routes/wallets");
+const valorantUserRoutes = require("./src/routes/valorant_users");
 
 // Import Supabase config
 const { supabase } = require("./src/config/supabase");
@@ -127,6 +128,7 @@ app.get("/", (req, res) => {
       host_applications: "/api/apply-host",
       admin: "/api/admin",
       wallets: "/api/wallets",
+      valorant_users: "/api/valorant-users",
       auth: "/auth/verify",
     },
   });
@@ -150,6 +152,7 @@ app.use("/api/user-roles", userRoleRoutes);
 app.use("/api", hostApplicationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/wallets", walletRoutes);
+app.use("/api/valorant-users", valorantUserRoutes);
 
 // 🔐 Verify token route
 app.post("/auth/verify", async (req, res) => {
@@ -196,7 +199,17 @@ app.post("/auth/verify", async (req, res) => {
         // Check if player record exists
         const { data: playerData, error: fetchError } = await supabase
           .from("users")
-          .select("*")
+          .select(
+            `
+            *,
+            valorant_users(
+              valorant_name,
+              valorant_tag,
+              platform,
+              region
+            )
+          `
+          )
           .eq("player_id", userData.id)
           .single();
 
@@ -288,15 +301,9 @@ app.post("/auth/verify", async (req, res) => {
               player_id: existingPlayer.player_id,
               display_name: existingPlayer.display_name,
               username: existingPlayer.username,
-              profile_complete:
-                existingPlayer.valo_name !== "TBD" &&
-                existingPlayer.valo_tag !== "TBD" &&
-                existingPlayer.VPA !== "TBD",
+              profile_complete: existingPlayer.VPA !== "TBD",
               profile_created: false, // Not created in this session
-              needs_setup:
-                existingPlayer.valo_name === "TBD" ||
-                existingPlayer.valo_tag === "TBD" ||
-                existingPlayer.VPA === "TBD",
+              needs_setup: existingPlayer.VPA === "TBD",
             }
           : {
               profile_complete: false,

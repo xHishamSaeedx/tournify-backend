@@ -442,7 +442,16 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
     // Check if user has a complete profile
     const { data: playerData, error: playerError } = await supabase
       .from("users")
-      .select("username, valo_name, valo_tag, VPA")
+      .select(
+        `
+        username, 
+        VPA,
+        valorant_users!inner(
+          valorant_name,
+          valorant_tag
+        )
+      `
+      )
       .eq("player_id", playerId)
       .single();
 
@@ -457,8 +466,8 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
     // Check if required fields are filled
     if (
       !playerData.username ||
-      !playerData.valo_name ||
-      !playerData.valo_tag ||
+      !playerData.valorant_users?.valorant_name ||
+      !playerData.valorant_users?.valorant_tag ||
       !playerData.VPA
     ) {
       return res.status(400).json({
@@ -757,9 +766,11 @@ router.get(
           player_id,
           username,
           display_name,
-          valo_name,
-          valo_tag,
-          VPA
+          VPA,
+          valorant_users!inner(
+            valorant_name,
+            valorant_tag
+          )
         )
       `
         )
