@@ -96,6 +96,7 @@ const hostApplicationRoutes = require("./src/routes/host_applications");
 const adminRoutes = require("./src/routes/admin");
 const walletRoutes = require("./src/routes/wallets");
 const valorantUserRoutes = require("./src/routes/valorant_users");
+const profilePictureRoutes = require("./src/routes/profile-pictures");
 
 // Import Supabase config
 const { supabase } = require("./src/config/supabase");
@@ -153,6 +154,7 @@ app.use("/api", hostApplicationRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/wallets", walletRoutes);
 app.use("/api/valorant-users", valorantUserRoutes);
+app.use("/api/profile-pictures", profilePictureRoutes);
 
 // 🔐 Verify token route
 app.post("/auth/verify", async (req, res) => {

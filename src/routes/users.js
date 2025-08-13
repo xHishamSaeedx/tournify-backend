@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const { supabase } = require("../config/supabase");
+const { supabase, supabaseAdmin } = require("../config/supabase");
 
 // GET all users
 router.get("/", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .order("created_at", { ascending: false });
@@ -31,10 +31,10 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("users")
       .select("*")
-      .eq("id", id)
+      .eq("player_id", id)
       .single();
 
     if (error) throw error;
@@ -63,19 +63,20 @@ router.get("/:id", async (req, res) => {
 // POST create new user
 router.post("/", async (req, res) => {
   try {
-    const { email, username, full_name, avatar_url } = req.body;
+    const { email, username, full_name, avatar_url, player_id } = req.body;
 
-    if (!email || !username) {
+    if (!email || !username || !player_id) {
       return res.status(400).json({
         success: false,
-        error: "Email and username are required",
+        error: "Email, username, and player_id are required",
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("users")
       .insert([
         {
+          player_id,
           email,
           username,
           full_name,
@@ -109,10 +110,10 @@ router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("users")
       .update(updateData)
-      .eq("id", id)
+      .eq("player_id", id)
       .select()
       .single();
 
@@ -144,7 +145,10 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from("users").delete().eq("id", id);
+    const { error } = await supabaseAdmin
+      .from("users")
+      .delete()
+      .eq("player_id", id);
 
     if (error) throw error;
 
