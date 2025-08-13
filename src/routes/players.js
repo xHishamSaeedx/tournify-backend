@@ -94,10 +94,15 @@ router.get("/:id", async (req, res) => {
       .eq("user_id", id)
       .single();
 
-    // Combine the data
+    // Combine the data - flatten Valorant data for easier frontend consumption
     const data = {
       ...userData,
       valorant_users: valorantError || !valorantData ? [] : [valorantData],
+      // Also include flattened fields for backward compatibility
+      valo_name: valorantData?.valorant_name || null,
+      valo_tag: valorantData?.valorant_tag || null,
+      platform: valorantData?.platform || null,
+      region: valorantData?.region || null,
     };
 
     const error = null; // We've handled errors above
@@ -259,7 +264,12 @@ router.post("/", async (req, res) => {
     // Combine the data for response
     const data = {
       ...userData,
-      valorant_data: valorantData,
+      valorant_users: valorantData ? [valorantData] : [],
+      // Also include flattened fields for backward compatibility
+      valo_name: valorantData?.valorant_name || null,
+      valo_tag: valorantData?.valorant_tag || null,
+      platform: valorantData?.platform || null,
+      region: valorantData?.region || null,
     };
 
     // Error handling is already done above for both user and valorant data
@@ -425,7 +435,12 @@ router.put("/:id", async (req, res) => {
     // Combine the data for response
     const data = {
       ...userData,
-      valorant_data: valorantData,
+      valorant_users: valorantData ? [valorantData] : [],
+      // Also include flattened fields for backward compatibility
+      valo_name: valorantData?.valorant_name || null,
+      valo_tag: valorantData?.valorant_tag || null,
+      platform: valorantData?.platform || null,
+      region: valorantData?.region || null,
     };
 
     // Error handling is already done above for both user and valorant data
