@@ -35,7 +35,7 @@ router.get("/", async (req, res) => {
         if (tournament.host_id) {
           const { data: hostData, error: hostError } = await supabase
             .from("users")
-            .select("player_id, username, display_name")
+            .select("player_id, username, display_name, avatar_url")
             .eq("player_id", tournament.host_id)
             .single();
 
@@ -111,7 +111,7 @@ router.get("/host/:hostId", verifyToken, ensureUserExists, async (req, res) => {
         if (tournament.host_id) {
           const { data: hostData, error: hostError } = await supabase
             .from("users")
-            .select("player_id, username, display_name")
+            .select("player_id, username, display_name, avatar_url")
             .eq("player_id", tournament.host_id)
             .single();
 
@@ -181,7 +181,7 @@ router.get("/:id", async (req, res) => {
     if (data.host_id) {
       const { data: hostData, error: hostError } = await supabase
         .from("users")
-        .select("player_id, username, display_name")
+        .select("player_id, username, display_name, avatar_url")
         .eq("player_id", data.host_id)
         .single();
 
@@ -220,6 +220,7 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
       party_join_time,
       platform,
       region,
+      match_map,
       host_id,
     } = req.body;
 
@@ -297,6 +298,7 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
       match_result_time: matchResultTime.toISOString(),
       platform: platform,
       region: region,
+      match_map: match_map,
     };
 
     console.log("Attempting to create tournament with data:", tournamentData);
@@ -445,11 +447,7 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
       .select(
         `
         username, 
-        VPA,
-        valorant_users!inner(
-          valorant_name,
-          valorant_tag
-        )
+        VPA
       `
       )
       .eq("player_id", playerId)
@@ -463,11 +461,18 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
       });
     }
 
+    // Get Valorant data separately to match the players endpoint structure
+    const { data: valorantData, error: valorantError } = await supabase
+      .from("valorant_users")
+      .select("valorant_name, valorant_tag")
+      .eq("user_id", playerId)
+      .single();
+
     // Check if required fields are filled
     if (
       !playerData.username ||
-      !playerData.valorant_users?.valorant_name ||
-      !playerData.valorant_users?.valorant_tag ||
+      !valorantData?.valorant_name ||
+      !valorantData?.valorant_tag ||
       !playerData.VPA
     ) {
       return res.status(400).json({
@@ -896,7 +901,7 @@ router.get("/joined/me", verifyToken, ensureUserExists, async (req, res) => {
         if (tournament.host_id) {
           const { data: hostData, error: hostError } = await supabase
             .from("users")
-            .select("player_id, username, display_name")
+            .select("player_id, username, display_name, avatar_url")
             .eq("player_id", tournament.host_id)
             .single();
 
