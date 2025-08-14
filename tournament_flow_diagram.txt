@@ -1,0 +1,188 @@
+flowchart TD
+    %% User Authentication & Profile Setup
+    A[User Authentication] --> B{User Profile Complete?}
+    B -->|No| C[Complete Profile Setup]
+    C --> D[Fill Required Fields:<br/>Username, Display Name, DOB, VPA<br/>Valorant Name, Tag, Platform, Region]
+    D --> E[Profile Validation]
+    E -->|Valid| F[Profile Created/Updated]
+    E -->|Invalid| D
+    B -->|Yes| G[User Ready for Tournaments]
+    F --> G
+
+    %% Tournament Creation Process
+    G --> H[Host Creates Tournament]
+    H --> I[Tournament Creation Form]
+    I --> J[Fill Tournament Details:<br/>Name, Capacity, Joining Fee<br/>Prize Percentages, Host Contribution<br/>Match Start Time, Party Join Time<br/>Platform, Region, Match Map]
+    J --> K{Validate Tournament Data}
+    K -->|Invalid| L[Show Validation Errors]
+    L --> J
+    K -->|Valid| M{Check 20-Minute Gap Rule}
+    M -->|Conflict| N[Show Time Conflict Error]
+    N --> J
+    M -->|Valid| O[Calculate Prize Pool]
+    O --> P[Create Tournament in Database]
+    P --> Q[Tournament Created Successfully]
+
+    %% Tournament Joining Process
+    Q --> R[Players Browse Tournaments]
+    R --> S[Player Selects Tournament]
+    S --> T{Player Profile Complete?}
+    T -->|No| U[Redirect to Profile Setup]
+    U --> D
+    T -->|Yes| V{Check Tournament Availability}
+    V -->|Not Found| W[Show Tournament Not Found]
+    V -->|Found| X{Check Registration Time}
+    X -->|Closed| Y[Show Registration Closed<br/>Less than 5 min before start]
+    X -->|Open| Z{Player Already Joined?}
+    Z -->|Yes| AA[Show Already Joined Error]
+    Z -->|No| BB{Check Tournament Capacity}
+    BB -->|Full| CC[Show Tournament Full Error]
+    BB -->|Available| DD[Process Joining Fee]
+    DD --> EE{User Has Sufficient Balance?}
+    EE -->|No| FF[Show Insufficient Balance Error]
+    EE -->|Yes| GG[Deduct Joining Fee]
+    GG --> HH[Add Player to Participants]
+    HH --> II[Update Tournament Player Count]
+    II --> JJ[Player Successfully Joined]
+
+    %% Tournament Room & Party Code Process
+    JJ --> KK[Tournament Room Access]
+    KK --> LL{User is Host?}
+    LL -->|Yes| MM[Host Tournament Room]
+    LL -->|No| NN[Player Tournament Room]
+    
+    %% Host Room Features
+    MM --> OO[Host Features:<br/>View Participants, Manage Tournament, Set Party Code]
+    OO --> PP{Party Join Time Reached?}
+    PP -->|No| QQ[Show Countdown Timer]
+    QQ --> PP
+    PP -->|Yes| RR[Host Can Set Party Code]
+    RR --> SS[Enter Party Code]
+    SS --> TT[Update Party Code in Database]
+    TT --> UU[Party Code Available to Players]
+    
+    %% Player Room Features
+    NN --> VV[Player Features:<br/>View Tournament Details, See Party Code Status]
+    VV --> WW{Party Join Time Reached?}
+    WW -->|No| XX[Show Countdown Timer]
+    XX --> WW
+    WW -->|Yes| YY{Party Code Set by Host?}
+    YY -->|No| ZZ[Show Host will provide code soon]
+    YY -->|Yes| AAA[Display Party Code]
+    AAA --> BBB[Player Can Copy Party Code]
+
+    %% Match Execution & Verification Process
+    UU --> CCC[Match Start Time Approaches]
+    BBB --> CCC
+    CCC --> DDD[Players Join Game with Party Code]
+    DDD --> EEE[Match Execution]
+    EEE --> FFF[Match Ends]
+    FFF --> GGG[Match Result Time Reached]
+    GGG --> HHH[Tournament Processor Cron Job]
+    
+    %% Background Processing
+    HHH --> III[Check Pending Tournaments]
+    III --> JJJ{Find Unprocessed Tournaments<br/>Past Result Time?}
+    JJJ -->|No| KKK[No Action Needed]
+    JJJ -->|Yes| LLL[Process Tournament]
+    
+    %% Match Validation Process
+    LLL --> MMM[Get Tournament Participants]
+    MMM --> NNN[Fetch Valorant User Data]
+    NNN --> OOO[Prepare Validation Request]
+    OOO --> PPP[Call Valorant Service:<br/>Validate Match History]
+    PPP --> QQQ{70% Players Share Match ID?}
+    QQQ -->|No| RRR[Validation Failed]
+    RRR --> SSS[Refund All Joining Fees]
+    SSS --> TTT[Mark Tournament as Invalid]
+    QQQ -->|Yes| UUU[Verify Match Details]
+    UUU --> VVV{Time & Map Verification Passed?}
+    VVV -->|No| RRR
+    VVV -->|Yes| WWW[Match Validation Successful]
+    
+    %% Prize Distribution Process
+    WWW --> XXX[Generate Leaderboard]
+    XXX --> YYY[Calculate Prize Amounts]
+    YYY --> ZZZ[Allocate Prizes to Winners]
+    ZZZ --> AAAA[Create Wallet Transactions]
+    AAAA --> BBBB[Update User Wallets]
+    BBBB --> CCCC[Mark Tournament as Valid]
+    CCCC --> DDDD[Tournament Processing Complete]
+
+    %% Error Handling & Refunds
+    TTT --> EEEE[Tournament Marked as Invalid]
+    EEEE --> FFFF[All Participants Refunded]
+    FFFF --> GGGG[Process Complete]
+
+    %% Styling
+    classDef success fill:#d4edda,stroke:#155724,color:#155724
+    classDef error fill:#f8d7da,stroke:#721c24,color:#721c24
+    classDef warning fill:#fff3cd,stroke:#856404,color:#856404
+    classDef info fill:#d1ecf1,stroke:#0c5460,color:#0c5460
+    classDef process fill:#e2e3e5,stroke:#383d41,color:#383d41
+
+    class JJ,DDD,WWW,DDDD success
+    class W,Y,AA,CC,FF,RRR error
+    class QQ,XX,ZZ warning
+    class HHH,LLL,PPP info
+    class EEE,FFF process
+```
+
+# Tournament Creation to Match Verification Process Flow
+
+## Overview
+This Mermaid diagram visualizes the complete tournament lifecycle from user authentication through match verification and prize distribution.
+
+## Key Process Sections:
+
+### 1. User Authentication & Profile Setup
+- User authentication check
+- Profile completeness validation
+- Required fields: username, display name, DOB, VPA, Valorant credentials
+
+### 2. Tournament Creation
+- Host fills tournament details
+- 20-minute gap validation between tournaments
+- Prize pool calculation
+- Database creation
+
+### 3. Tournament Joining
+- Profile completeness check
+- Registration time validation (5-minute cutoff)
+- Capacity check
+- Joining fee processing
+- Participant registration
+
+### 4. Tournament Room & Party Code
+- Host can set party code after party join time
+- Players can view party code when available
+- Real-time countdown timers
+
+### 5. Match Execution & Verification
+- Background cron job processes tournaments
+- 70% player match ID validation
+- Time and map verification
+- Automatic prize distribution or refunds
+
+### 6. Error Handling & Refunds
+- Invalid matches trigger full refunds
+- Tournament status tracking
+- Comprehensive error handling
+
+## Key Conditionals:
+- Profile completeness validation
+- 20-minute gap rule for tournament creation
+- Registration time limits (5-minute cutoff)
+- Tournament capacity checks
+- 70% player match ID validation
+- Time and map verification
+
+## Color Coding:
+- **Green (Success)**: Successful operations
+- **Red (Error)**: Error states and failures
+- **Yellow (Warning)**: Waiting states and countdowns
+- **Blue (Info)**: Background processes
+- **Gray (Process)**: Match execution steps
+
+## Usage:
+Copy the Mermaid code above into any Mermaid renderer (GitHub, GitLab, Mermaid Live Editor, etc.) to visualize the complete tournament flow.
