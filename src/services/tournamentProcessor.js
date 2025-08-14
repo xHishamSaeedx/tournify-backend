@@ -14,7 +14,7 @@ async function allocatePrizesToWinners(
     const { data: tournamentDetails, error: tournamentError } = await supabase
       .from("valorant_deathmatch_rooms")
       .select(
-        "prize_first_pct, prize_second_pct, prize_third_pct, prize_pool, name"
+        "prize_first_pct, prize_second_pct, prize_third_pct, prize_pool, name, host_id, joining_fee, capacity, host_percentage"
       )
       .eq("tournament_id", tournamentId)
       .single();
@@ -40,6 +40,10 @@ async function allocatePrizesToWinners(
       prize_third_pct,
       prize_pool,
       name: tournamentName,
+      host_id,
+      joining_fee,
+      capacity,
+      host_percentage,
     } = tournamentDetails;
 
     // Calculate prize amounts (percentages are stored as decimals, e.g., 0.5 for 50%)
@@ -196,6 +200,125 @@ async function allocatePrizesToWinners(
       }
     }
 
+    // Allocate credits to host
+    let hostAllocation = null;
+    if (host_id && joining_fee && capacity && host_percentage) {
+      try {
+        console.log("👑 Allocating credits to tournament host...");
+
+        // Calculate host's share: (joining_fee * capacity) * host_percentage
+        const hostShare = Math.floor(joining_fee * capacity * host_percentage);
+
+        console.log(
+          `💰 Host allocation: joining_fee=${joining_fee}, capacity=${capacity}, host_percentage=${host_percentage}, host_share=${hostShare}`
+        );
+
+        if (hostShare > 0) {
+          // Create credit transaction for host
+          const { data: hostTransaction, error: hostTransactionError } =
+            await supabase
+              .from("wallet_transactions")
+              .insert([
+                {
+                  user_id: host_id,
+                  type: "tournament_host_fee",
+                  amount: hostShare,
+                  description: `Host fee for ${tournamentName}`,
+                  ref_id: tournamentId,
+                  created_at: new Date().toISOString(),
+                },
+              ])
+              .select()
+              .single();
+
+          if (hostTransactionError) {
+            console.error(
+              `❌ Error creating host transaction:`,
+              hostTransactionError
+            );
+          } else {
+            // Update host's wallet balance
+            let { data: currentHostWallet, error: fetchHostError } =
+              await supabase
+                .from("user_wallets")
+                .select("balance")
+                .eq("user_id", host_id)
+                .single();
+
+            let updatedHostWallet;
+
+            if (fetchHostError && fetchHostError.code === "PGRST116") {
+              // Host wallet doesn't exist, create one
+              const { data: newHostWallet, error: createHostError } =
+                await supabase
+                  .from("user_wallets")
+                  .insert([
+                    {
+                      user_id: host_id,
+                      balance: hostShare,
+                      created_at: new Date().toISOString(),
+                      last_updated: new Date().toISOString(),
+                    },
+                  ])
+                  .select()
+                  .single();
+
+              if (createHostError) {
+                console.error(
+                  `❌ Error creating host wallet:`,
+                  createHostError
+                );
+              } else {
+                updatedHostWallet = newHostWallet;
+              }
+            } else if (fetchHostError) {
+              console.error(`❌ Error fetching host wallet:`, fetchHostError);
+            } else {
+              // Update existing host wallet
+              const { data: updatedHostWalletData, error: updateHostError } =
+                await supabase
+                  .from("user_wallets")
+                  .update({
+                    balance: currentHostWallet.balance + hostShare,
+                    last_updated: new Date().toISOString(),
+                  })
+                  .eq("user_id", host_id)
+                  .select()
+                  .single();
+
+              if (updateHostError) {
+                console.error(
+                  `❌ Error updating host wallet:`,
+                  updateHostError
+                );
+              } else {
+                updatedHostWallet = updatedHostWalletData;
+              }
+            }
+
+            if (updatedHostWallet) {
+              hostAllocation = {
+                host_id: host_id,
+                host_share: hostShare,
+                new_balance: updatedHostWallet.balance,
+                transaction_id: hostTransaction.id,
+              };
+
+              console.log(
+                `✅ Allocated ${hostShare} credits to host (${host_id}) for ${tournamentName}`
+              );
+            }
+          }
+        } else {
+          console.log("ℹ️ No host allocation needed (host_share = 0)");
+        }
+      } catch (error) {
+        console.error("❌ Error allocating credits to host:", error);
+      }
+    } else {
+      console.log("ℹ️ Skipping host allocation - missing required data");
+    }
+
     return {
       tournament_id: tournamentId,
       prize_pool: prize_pool,
@@ -204,7 +327,10 @@ async function allocatePrizesToWinners(
         (sum, winner) => sum + winner.prize_amount,
         0
       ),
-      message: `Successfully allocated prizes to ${winners.length} winners`,
+      host_allocation: hostAllocation,
+      message: `Successfully allocated prizes to ${winners.length} winners${
+        hostAllocation ? " and host" : ""
+      }`,
     };
   } catch (error) {
     console.error("❌ Error allocating prizes:", error);
@@ -213,6 +339,7 @@ async function allocatePrizesToWinners(
       prize_pool: 0,
       winners: [],
       total_allocated: 0,
+      host_allocation: null,
       message: "Failed to allocate prizes due to an error",
       error: error.message,
     };
