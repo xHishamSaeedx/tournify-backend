@@ -98,6 +98,11 @@ const walletRoutes = require("./src/routes/wallets");
 const valorantUserRoutes = require("./src/routes/valorant_users");
 const profilePictureRoutes = require("./src/routes/profile-pictures");
 
+// Import services
+const {
+  initializeTournamentProcessor,
+} = require("./src/services/tournamentProcessor");
+
 // Import Supabase config
 const { supabase } = require("./src/config/supabase");
 
@@ -356,4 +361,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Tournify Backend Server running on port ${PORT}`);
   console.log(`📊 Health check available at http://localhost:${PORT}/health`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
+
+  // Initialize background services
+  initializeTournamentProcessor();
 });
