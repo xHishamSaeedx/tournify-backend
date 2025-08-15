@@ -941,4 +941,182 @@ router.get("/joined/me", verifyToken, ensureUserExists, async (req, res) => {
   }
 });
 
+// POST cancel tournament (protected - only host can cancel)
+router.post(
+  "/cancel/:tournamentId",
+  verifyToken,
+  ensureUserExists,
+  async (req, res) => {
+    try {
+      const { tournamentId } = req.params;
+      const userId = req.user.player_id || req.user.id;
+
+      // First, verify the tournament exists and the user is the host
+      const { data: tournament, error: tournamentError } = await supabase
+        .from("valorant_deathmatch_rooms")
+        .select("*")
+        .eq("tournament_id", tournamentId)
+        .single();
+
+      if (tournamentError || !tournament) {
+        return res.status(404).json({
+          success: false,
+          error: "Tournament not found",
+          message: "The tournament you're trying to cancel does not exist",
+        });
+      }
+
+      // Check if the user is the host of this tournament
+      if (tournament.host_id !== userId) {
+        return res.status(403).json({
+          success: false,
+          error: "Unauthorized",
+          message: "Only the tournament host can cancel the tournament",
+        });
+      }
+
+      // Check if tournament is more than 5 minutes away from starting
+      const now = new Date();
+      const matchStartTime = new Date(tournament.match_start_time);
+      const timeDiff = matchStartTime.getTime() - now.getTime();
+      const minutesUntilStart = timeDiff / (1000 * 60);
+
+      if (minutesUntilStart <= 5) {
+        return res.status(400).json({
+          success: false,
+          error: "Cannot cancel tournament",
+          message:
+            "Tournaments cannot be cancelled within 5 minutes of the start time",
+        });
+      }
+
+      // Get all participants for this tournament
+      const { data: participants, error: participantsError } = await supabase
+        .from("valorant_deathmatch_participants")
+        .select("player_id")
+        .eq("room_id", tournamentId);
+
+      if (participantsError) throw participantsError;
+
+      // Process refunds for all participants
+      if (
+        participants &&
+        participants.length > 0 &&
+        tournament.joining_fee > 0
+      ) {
+        for (const participant of participants) {
+          // Get current wallet balance first
+          const { data: currentWallet, error: fetchError } = await supabase
+            .from("user_wallets")
+            .select("balance")
+            .eq("user_id", participant.player_id)
+            .single();
+
+          if (fetchError && fetchError.code === "PGRST116") {
+            // Wallet doesn't exist, create one with refund amount
+            const { error: createError } = await supabase
+              .from("user_wallets")
+              .insert({
+                user_id: participant.player_id,
+                balance: tournament.joining_fee,
+                created_at: new Date().toISOString(),
+                last_updated: new Date().toISOString(),
+              });
+
+            if (createError) {
+              console.error(
+                "Error creating wallet for participant:",
+                participant.player_id,
+                createError
+              );
+            }
+          } else if (fetchError) {
+            console.error(
+              "Error fetching wallet for participant:",
+              participant.player_id,
+              fetchError
+            );
+          } else {
+            // Update existing wallet balance
+            const { error: walletError } = await supabase
+              .from("user_wallets")
+              .update({
+                balance: (currentWallet.balance || 0) + tournament.joining_fee,
+                last_updated: new Date().toISOString(),
+              })
+              .eq("user_id", participant.player_id);
+
+            if (walletError) {
+              console.error(
+                "Error updating wallet for participant:",
+                participant.player_id,
+                walletError
+              );
+            }
+          }
+
+          // Create transaction record
+          const { error: transactionError } = await supabase
+            .from("wallet_transactions")
+            .insert({
+              user_id: participant.player_id,
+              type: "refund",
+              amount: tournament.joining_fee,
+              description: `Tournament cancellation refund - ${tournament.name}`,
+              ref_id: tournamentId,
+              created_at: new Date().toISOString(),
+            });
+
+          if (transactionError) {
+            console.error(
+              "Error creating transaction record for participant:",
+              participant.player_id,
+              transactionError
+            );
+            // Continue with other participants even if one fails
+          }
+        }
+      }
+
+      // Delete all participants for this tournament
+      const { error: deleteParticipantsError } = await supabase
+        .from("valorant_deathmatch_participants")
+        .delete()
+        .eq("room_id", tournamentId);
+
+      if (deleteParticipantsError) {
+        console.error("Error deleting participants:", deleteParticipantsError);
+        throw deleteParticipantsError;
+      }
+
+      // Delete the tournament itself
+      const { error: deleteTournamentError } = await supabase
+        .from("valorant_deathmatch_rooms")
+        .delete()
+        .eq("tournament_id", tournamentId);
+
+      if (deleteTournamentError) {
+        console.error("Error deleting tournament:", deleteTournamentError);
+        throw deleteTournamentError;
+      }
+
+      res.json({
+        success: true,
+        message: "Tournament cancelled successfully",
+        data: {
+          tournament_id: tournamentId,
+          participants_refunded: participants ? participants.length : 0,
+        },
+      });
+    } catch (error) {
+      console.error("Error cancelling tournament:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to cancel tournament",
+        message: error.message,
+      });
+    }
+  }
+);
+
 module.exports = router;
