@@ -103,6 +103,10 @@ const {
   initializeTournamentProcessor,
 } = require("./src/services/tournamentProcessor");
 
+const {
+  initializePrizePoolCalculator,
+} = require("./src/services/prizePoolCalculator");
+
 // Import Supabase config
 const { supabase } = require("./src/config/supabase");
 
@@ -364,4 +368,5 @@ app.listen(PORT, () => {
 
   // Initialize background services
   initializeTournamentProcessor();
+  initializePrizePoolCalculator();
 });
