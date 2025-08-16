@@ -1,13 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const { supabase } = require("../config/supabase");
+const { supabaseAdmin } = require("../config/supabase");
 
 // Get user roles
 router.get("/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const { data: roles, error } = await supabase
+    const { data: roles, error } = await supabaseAdmin
       .from("user_roles")
       .select("user_role, game")
       .eq("user_id", userId);
@@ -35,7 +35,7 @@ router.get("/:userId/detailed", async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const { data: roles, error } = await supabase
+    const { data: roles, error } = await supabaseAdmin
       .from("user_roles")
       .select("*")
       .eq("user_id", userId);
@@ -57,7 +57,7 @@ router.get("/:userId/host-for-game/:game", async (req, res) => {
   try {
     const { userId, game } = req.params;
 
-    const { data: hostRole, error } = await supabase
+    const { data: hostRole, error } = await supabaseAdmin
       .from("user_roles")
       .select("game")
       .eq("user_id", userId)
@@ -102,7 +102,7 @@ router.post("/:userId/roles", async (req, res) => {
       gameData = [game]; // Store as JSONB array
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("user_roles")
       .insert([
         {
@@ -132,7 +132,7 @@ router.delete("/:userId/roles/:roleName", async (req, res) => {
   try {
     const { userId, roleName } = req.params;
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from("user_roles")
       .delete()
       .eq("user_id", userId)

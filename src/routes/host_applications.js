@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { supabase } = require("../config/supabase");
+const { supabaseAdmin } = require("../config/supabase");
 const { verifyToken } = require("../middleware/auth");
 
 // POST /api/apply-host - Submit host application
@@ -20,7 +20,7 @@ router.post("/apply-host", verifyToken, async (req, res) => {
     }
 
     // Check if user already has a pending application
-    const { data: existingApplication, error: checkError } = await supabase
+    const { data: existingApplication, error: checkError } = await supabaseAdmin
       .from("host_applications")
       .select("id, created_at")
       .eq("user_id", userId)
@@ -59,7 +59,7 @@ router.post("/apply-host", verifyToken, async (req, res) => {
       game: game || null
     });
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("host_applications")
       .insert([
         {
@@ -119,7 +119,7 @@ router.get("/my", verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("host_applications")
       .select("*")
       .eq("user_id", userId)
@@ -156,7 +156,7 @@ router.get("/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("host_applications")
       .select("*")
       .eq("id", id)

@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const { supabase } = require("../config/supabase");
+const { supabaseAdmin } = require("../config/supabase");
 
 // GET all valorant users
 router.get("/", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("valorant_users")
       .select(
         `
@@ -42,7 +42,7 @@ router.get("/", async (req, res) => {
 router.get("/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("valorant_users")
       .select(
         `
@@ -96,7 +96,7 @@ router.post("/", async (req, res) => {
     }
 
     // Check if valorant user already exists
-    const { data: existingValorantUser, error: checkError } = await supabase
+    const { data: existingValorantUser, error: checkError } = await supabaseAdmin
       .from("valorant_users")
       .select("*")
       .eq("user_id", user_id)
@@ -115,7 +115,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("valorant_users")
       .insert([
         {
@@ -160,7 +160,7 @@ router.put("/:userId", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("valorant_users")
       .update({
         valorant_name: valorant_name.trim(),
@@ -200,7 +200,7 @@ router.put("/:userId", async (req, res) => {
 router.delete("/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from("valorant_users")
       .delete()
       .eq("user_id", userId);
@@ -231,7 +231,7 @@ async function allocatePrizesToWinners(
     console.log("🏆 Allocating prizes to winners...");
 
     // Get tournament prize details
-    const { data: tournamentDetails, error: tournamentError } = await supabase
+    const { data: tournamentDetails, error: tournamentError } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .select("prize_first_pct, prize_second_pct, prize_third_pct, prize_pool")
       .eq("tournament_id", tournamentId)
@@ -304,7 +304,7 @@ async function allocatePrizesToWinners(
         const userId = valorantUser.user_id;
 
         // Create credit transaction
-        const { data: transaction, error: transactionError } = await supabase
+        const { data: transaction, error: transactionError } = await supabaseAdmin
           .from("wallet_transactions")
           .insert([
             {
@@ -330,7 +330,7 @@ async function allocatePrizesToWinners(
         }
 
         // Update wallet balance
-        let { data: currentWallet, error: fetchError } = await supabase
+        let { data: currentWallet, error: fetchError } = await supabaseAdmin
           .from("user_wallets")
           .select("balance")
           .eq("user_id", userId)
@@ -340,7 +340,7 @@ async function allocatePrizesToWinners(
 
         if (fetchError && fetchError.code === "PGRST116") {
           // Wallet doesn't exist, create one
-          const { data: newWallet, error: createError } = await supabase
+          const { data: newWallet, error: createError } = await supabaseAdmin
             .from("user_wallets")
             .insert([
               {
@@ -369,7 +369,7 @@ async function allocatePrizesToWinners(
           continue;
         } else {
           // Update existing wallet
-          const { data: updatedWalletData, error: updateError } = await supabase
+          const { data: updatedWalletData, error: updateError } = await supabaseAdmin
             .from("user_wallets")
             .update({
               balance: currentWallet.balance + prizeAmount,
