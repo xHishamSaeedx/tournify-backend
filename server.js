@@ -114,7 +114,7 @@ const { supabase } = require("./src/config/supabase");
 app.use(helmet()); // Security headers
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:5176",
+    origin: process.env.CORS_ORIGIN || "*",
     credentials: true,
   })
 ); // Enable CORS with proper origin
