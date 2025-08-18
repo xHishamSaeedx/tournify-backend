@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const { supabase } = require("../config/supabase");
+const { supabaseAdmin } = require("../config/supabase");
 
 // GET all users
 router.get("/", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .order("created_at", { ascending: false });
@@ -55,7 +55,7 @@ router.get("/:id", async (req, res) => {
     console.log("🔍 GET - Looking for user with ID:", id);
 
     // First, get the user data
-    const { data: userData, error: userError } = await supabase
+    const { data: userData, error: userError } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("player_id", id)
@@ -88,7 +88,7 @@ router.get("/:id", async (req, res) => {
     }
 
     // Then, get the Valorant data separately
-    const { data: valorantData, error: valorantError } = await supabase
+    const { data: valorantData, error: valorantError } = await supabaseAdmin
       .from("valorant_users")
       .select("valorant_name, valorant_tag, platform, region")
       .eq("user_id", id)
@@ -181,7 +181,7 @@ router.post("/", async (req, res) => {
 
     // Check if user already exists
     console.log("🔍 Checking if user already exists for ID:", player_id);
-    const { data: existingPlayer, error: checkError } = await supabase
+    const { data: existingPlayer, error: checkError } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("player_id", player_id)
@@ -206,7 +206,7 @@ router.post("/", async (req, res) => {
     console.log("💾 Attempting to insert user into database...");
 
     // First, insert the user data (without Valorant fields)
-    const { data: userData, error: userError } = await supabase
+    const { data: userData, error: userError } = await supabaseAdmin
       .from("users")
       .insert([
         {
@@ -239,7 +239,7 @@ router.post("/", async (req, res) => {
     // Then, insert the Valorant data into the new table only if Valorant fields are provided
     let valorantData = null;
     if (valo_name && valo_tag && platform && region) {
-      const { data: valorantInsertData, error: valorantError } = await supabase
+      const { data: valorantInsertData, error: valorantError } = await supabaseAdmin
         .from("valorant_users")
         .insert([
           {
@@ -350,7 +350,7 @@ router.put("/:id", async (req, res) => {
     console.log("💾 PUT - Attempting to update user in database...");
 
     // First, check if user exists
-    const { data: existingUser, error: checkError } = await supabase
+    const { data: existingUser, error: checkError } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("player_id", id)
@@ -362,7 +362,7 @@ router.put("/:id", async (req, res) => {
     if (checkError && checkError.code === "PGRST116") {
       // User doesn't exist, create them
       console.log("⚠️ PUT - User not found for ID:", id, "- Creating new user");
-      const { data: newUserData, error: createError } = await supabase
+      const { data: newUserData, error: createError } = await supabaseAdmin
         .from("users")
         .insert([
           {
@@ -390,7 +390,7 @@ router.put("/:id", async (req, res) => {
     } else {
       // User exists, update them
       console.log("✅ PUT - User found, updating existing user");
-      const { data: updatedUserData, error: updateError } = await supabase
+      const { data: updatedUserData, error: updateError } = await supabaseAdmin
         .from("users")
         .update({
           display_name: display_name.trim(),
@@ -424,7 +424,7 @@ router.put("/:id", async (req, res) => {
     // Then, update or insert the Valorant data only if Valorant fields are provided
     let valorantData = null;
     if (valo_name && valo_tag && platform && region) {
-      const { data: valorantUpsertData, error: valorantError } = await supabase
+      const { data: valorantUpsertData, error: valorantError } = await supabaseAdmin
         .from("valorant_users")
         .upsert([
           {
@@ -446,7 +446,7 @@ router.put("/:id", async (req, res) => {
       valorantData = valorantUpsertData;
     } else {
       // If no Valorant data provided, delete existing Valorant record if it exists
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await supabaseAdmin
         .from("valorant_users")
         .delete()
         .eq("user_id", id);
@@ -491,7 +491,7 @@ router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("users")
       .delete()
       .eq("player_id", id)

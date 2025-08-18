@@ -1,11 +1,11 @@
 const express = require("express");
 const router = express.Router();
-const { supabase } = require("../config/supabase");
+const { supabaseAdmin } = require("../config/supabase");
 
 // GET all matches
 router.get("/", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("matches")
       .select("*")
       .order("created_at", { ascending: false });
@@ -31,7 +31,7 @@ router.get("/", async (req, res) => {
 router.get("/tournament/:tournamentId", async (req, res) => {
   try {
     const { tournamentId } = req.params;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("matches")
       .select("*")
       .eq("tournament_id", tournamentId)
@@ -58,7 +58,7 @@ router.get("/tournament/:tournamentId", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("matches")
       .select("*")
       .eq("id", id)
@@ -106,7 +106,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("matches")
       .insert([
         {
@@ -148,7 +148,7 @@ router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("matches")
       .update(updateData)
       .eq("id", id)
@@ -192,7 +192,7 @@ router.put("/:id/result", async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("matches")
       .update({
         player1_score,
@@ -232,7 +232,7 @@ router.put("/:id/result", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { error } = await supabase.from("matches").delete().eq("id", id);
+    const { error } = await supabaseAdmin.from("matches").delete().eq("id", id);
 
     if (error) throw error;
 

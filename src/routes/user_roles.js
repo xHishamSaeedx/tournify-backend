@@ -1,13 +1,32 @@
 const express = require("express");
 const router = express.Router();
-const { supabase } = require("../config/supabase");
+const { supabaseAdmin } = require("../config/supabase");
+const { verifyToken } = require("../middleware/auth");
+
+// Apply authentication middleware to all routes
+router.use(verifyToken);
 
 // Get user roles
 router.get("/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const { data: roles, error } = await supabase
+    // Ensure user can only access their own roles or is admin
+    if (req.user.id !== userId) {
+      // Check if user is admin
+      const { data: adminCheck, error: adminError } = await supabaseAdmin
+        .from("user_roles")
+        .select("user_role")
+        .eq("user_id", req.user.id)
+        .eq("user_role", "admin")
+        .single();
+
+      if (adminError || !adminCheck) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
+
+    const { data: roles, error } = await supabaseAdmin
       .from("user_roles")
       .select("user_role, game")
       .eq("user_id", userId);
@@ -35,7 +54,22 @@ router.get("/:userId/detailed", async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const { data: roles, error } = await supabase
+    // Ensure user can only access their own roles or is admin
+    if (req.user.id !== userId) {
+      // Check if user is admin
+      const { data: adminCheck, error: adminError } = await supabaseAdmin
+        .from("user_roles")
+        .select("user_role")
+        .eq("user_id", req.user.id)
+        .eq("user_role", "admin")
+        .single();
+
+      if (adminError || !adminCheck) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
+
+    const { data: roles, error } = await supabaseAdmin
       .from("user_roles")
       .select("*")
       .eq("user_id", userId);
@@ -57,7 +91,22 @@ router.get("/:userId/host-for-game/:game", async (req, res) => {
   try {
     const { userId, game } = req.params;
 
-    const { data: hostRole, error } = await supabase
+    // Ensure user can only access their own roles or is admin
+    if (req.user.id !== userId) {
+      // Check if user is admin
+      const { data: adminCheck, error: adminError } = await supabaseAdmin
+        .from("user_roles")
+        .select("user_role")
+        .eq("user_id", req.user.id)
+        .eq("user_role", "admin")
+        .single();
+
+      if (adminError || !adminCheck) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+    }
+
+    const { data: hostRole, error } = await supabaseAdmin
       .from("user_roles")
       .select("game")
       .eq("user_id", userId)
@@ -86,7 +135,7 @@ router.get("/:userId/host-for-game/:game", async (req, res) => {
   }
 });
 
-// Assign role to user
+// Assign role to user - Only admins can do this
 router.post("/:userId/roles", async (req, res) => {
   try {
     const { userId } = req.params;
@@ -96,13 +145,25 @@ router.post("/:userId/roles", async (req, res) => {
       return res.status(400).json({ error: "Role name is required" });
     }
 
+    // Check if user is admin
+    const { data: adminCheck, error: adminError } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_role")
+      .eq("user_id", req.user.id)
+      .eq("user_role", "admin")
+      .single();
+
+    if (adminError || !adminCheck) {
+      return res.status(403).json({ error: "Only admins can assign roles" });
+    }
+
     // Handle game parameter for host roles
     let gameData = null;
     if (user_role === "host" && game) {
       gameData = [game]; // Store as JSONB array
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("user_roles")
       .insert([
         {
@@ -127,12 +188,24 @@ router.post("/:userId/roles", async (req, res) => {
   }
 });
 
-// Remove role from user
+// Remove role from user - Only admins can do this
 router.delete("/:userId/roles/:roleName", async (req, res) => {
   try {
     const { userId, roleName } = req.params;
 
-    const { error } = await supabase
+    // Check if user is admin
+    const { data: adminCheck, error: adminError } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_role")
+      .eq("user_id", req.user.id)
+      .eq("user_role", "admin")
+      .single();
+
+    if (adminError || !adminCheck) {
+      return res.status(403).json({ error: "Only admins can remove roles" });
+    }
+
+    const { error } = await supabaseAdmin
       .from("user_roles")
       .delete()
       .eq("user_id", userId)

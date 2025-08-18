@@ -1,14 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const { verifyToken } = require("../middleware/auth");
-const { supabase } = require("../config/supabase");
+const { supabaseAdmin } = require("../config/supabase");
 
 // Middleware to check if user is admin
 const requireAdmin = async (req, res, next) => {
   try {
     console.log("🔐 Checking admin privileges for user:", req.user.id);
 
-    const { data: userRoles, error } = await supabase
+    const { data: userRoles, error } = await supabaseAdmin
       .from("user_roles")
       .select("user_role")
       .eq("user_id", req.user.id)
@@ -49,7 +49,7 @@ router.get("/current-hosts", verifyToken, requireAdmin, async (req, res) => {
   try {
     console.log("🔍 Fetching current hosts for user:", req.user.id);
 
-    const { data: hosts, error } = await supabase
+    const { data: hosts, error } = await supabaseAdmin
       .from("user_roles")
       .select(
         `
@@ -94,7 +94,7 @@ router.get(
   requireAdmin,
   async (req, res) => {
     try {
-      const { data: applications, error } = await supabase
+      const { data: applications, error } = await supabaseAdmin
         .from("host_applications")
         .select(
           `
@@ -149,7 +149,7 @@ router.post(
       }
 
       // Get the application details
-      const { data: application, error: fetchError } = await supabase
+      const { data: application, error: fetchError } = await supabaseAdmin
         .from("host_applications")
         .select("*")
         .eq("id", applicationId)
@@ -163,7 +163,7 @@ router.post(
       }
 
       // Get current user roles to check if user is already a host
-      const { data: existingRoles, error: roleCheckError } = await supabase
+      const { data: existingRoles, error: roleCheckError } = await supabaseAdmin
         .from("user_roles")
         .select("*")
         .eq("user_id", application.user_id)
@@ -186,12 +186,14 @@ router.post(
 
       // Start a transaction-like operation
       // 1. Update user_roles to set user_role to 'host' and include games as JSONB
-      const { error: roleError } = await supabase.from("user_roles").upsert({
-        user_id: application.user_id,
-        user_email: application.user_email,
-        user_role: "host",
-        game: gamesArray, // Store as JSONB array of games
-      });
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .upsert({
+          user_id: application.user_id,
+          user_email: application.user_email,
+          user_role: "host",
+          game: gamesArray, // Store as JSONB array of games
+        });
 
       if (roleError) {
         console.error("Error updating user role:", roleError);
@@ -202,7 +204,7 @@ router.post(
       }
 
       // 2. Delete the application from host_applications
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await supabaseAdmin
         .from("host_applications")
         .delete()
         .eq("id", applicationId);
@@ -255,7 +257,7 @@ router.post(
       }
 
       // Get the application details for logging
-      const { data: application, error: fetchError } = await supabase
+      const { data: application, error: fetchError } = await supabaseAdmin
         .from("host_applications")
         .select("user_email")
         .eq("id", applicationId)
@@ -269,7 +271,7 @@ router.post(
       }
 
       // Delete the application
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await supabaseAdmin
         .from("host_applications")
         .delete()
         .eq("id", applicationId);
@@ -313,7 +315,7 @@ router.post("/remove-host", verifyToken, requireAdmin, async (req, res) => {
     }
 
     // Get the user details for logging
-    const { data: userRole, error: fetchError } = await supabase
+    const { data: userRole, error: fetchError } = await supabaseAdmin
       .from("user_roles")
       .select("user_email")
       .eq("user_id", userId)
@@ -328,7 +330,7 @@ router.post("/remove-host", verifyToken, requireAdmin, async (req, res) => {
     }
 
     // Update user_roles to set user_role back to 'player'
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from("user_roles")
       .update({ user_role: "player" })
       .eq("user_id", userId)
@@ -376,7 +378,7 @@ router.post(
       }
 
       // Get current host role
-      const { data: existingRole, error: fetchError } = await supabase
+      const { data: existingRole, error: fetchError } = await supabaseAdmin
         .from("user_roles")
         .select("*")
         .eq("user_id", userId)
@@ -402,7 +404,7 @@ router.post(
       }
 
       // Update the role with new games array
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin
         .from("user_roles")
         .update({ game: gamesArray })
         .eq("user_id", userId)
@@ -456,7 +458,7 @@ router.post(
       }
 
       // Get current host role
-      const { data: existingRole, error: fetchError } = await supabase
+      const { data: existingRole, error: fetchError } = await supabaseAdmin
         .from("user_roles")
         .select("*")
         .eq("user_id", userId)
@@ -485,7 +487,7 @@ router.post(
 
       // If no games left, remove the host role entirely
       if (gamesArray.length === 0) {
-        const { error: deleteError } = await supabase
+        const { error: deleteError } = await supabaseAdmin
           .from("user_roles")
           .delete()
           .eq("user_id", userId)
@@ -512,7 +514,7 @@ router.post(
         });
       } else {
         // Update the role with remaining games array
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseAdmin
           .from("user_roles")
           .update({ game: gamesArray })
           .eq("user_id", userId)
@@ -559,7 +561,7 @@ router.get(
     try {
       const { userId } = req.params;
 
-      const { data: hostRole, error } = await supabase
+      const { data: hostRole, error } = await supabaseAdmin
         .from("user_roles")
         .select("user_email, game")
         .eq("user_id", userId)

@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { supabase } = require("../config/supabase");
+const { supabaseAdmin } = require("../config/supabase");
 
 // GET user wallet balance
 router.get("/balance/:userId", async (req, res) => {
@@ -8,7 +8,7 @@ router.get("/balance/:userId", async (req, res) => {
     const { userId } = req.params;
 
     // Get or create wallet for user
-    let { data: wallet, error: walletError } = await supabase
+    let { data: wallet, error: walletError } = await supabaseAdmin
       .from("user_wallets")
       .select("*")
       .eq("user_id", userId)
@@ -16,7 +16,7 @@ router.get("/balance/:userId", async (req, res) => {
 
     if (walletError && walletError.code === "PGRST116") {
       // Wallet doesn't exist, create one
-      const { data: newWallet, error: createError } = await supabase
+      const { data: newWallet, error: createError } = await supabaseAdmin
         .from("user_wallets")
         .insert([
           {
@@ -60,7 +60,7 @@ router.get("/transactions/:userId", async (req, res) => {
     const { page = 1, limit = 20 } = req.query;
     const offset = (page - 1) * limit;
 
-    const { data: transactions, error } = await supabase
+    const { data: transactions, error } = await supabaseAdmin
       .from("wallet_transactions")
       .select("*")
       .eq("user_id", userId)
@@ -80,7 +80,7 @@ router.get("/transactions/:userId", async (req, res) => {
 
     let idToTournamentName = {};
     if (refIds.length > 0) {
-      const { data: tournaments, error: tErr } = await supabase
+      const { data: tournaments, error: tErr } = await supabaseAdmin
         .from("valorant_deathmatch_rooms")
         .select("tournament_id, name")
         .in("tournament_id", refIds);
@@ -97,7 +97,7 @@ router.get("/transactions/:userId", async (req, res) => {
     }));
 
     // Get total count for pagination
-    const { count, error: countError } = await supabase
+    const { count, error: countError } = await supabaseAdmin
       .from("wallet_transactions")
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
@@ -154,7 +154,7 @@ router.post("/transactions", async (req, res) => {
     }
 
     // Start a transaction to ensure data consistency
-    const { data: transaction, error: transactionError } = await supabase
+    const { data: transaction, error: transactionError } = await supabaseAdmin
       .from("wallet_transactions")
       .insert([
         {
@@ -175,7 +175,7 @@ router.post("/transactions", async (req, res) => {
     const balanceChange = type === "debit" ? -amount : amount;
     
     // Get current wallet balance
-    let { data: currentWallet, error: fetchError } = await supabase
+    let { data: currentWallet, error: fetchError } = await supabaseAdmin
       .from("user_wallets")
       .select("balance")
       .eq("user_id", user_id)
@@ -185,7 +185,7 @@ router.post("/transactions", async (req, res) => {
 
     if (fetchError && fetchError.code === "PGRST116") {
       // Wallet doesn't exist, create one
-      const { data: newWallet, error: createError } = await supabase
+      const { data: newWallet, error: createError } = await supabaseAdmin
         .from("user_wallets")
         .insert([
           {
@@ -210,7 +210,7 @@ router.post("/transactions", async (req, res) => {
         throw new Error(`Insufficient balance: current balance is ${currentWallet.balance}, trying to deduct ${Math.abs(balanceChange)}`);
       }
 
-      const { data: updated, error: updateError } = await supabase
+      const { data: updated, error: updateError } = await supabaseAdmin
         .from("user_wallets")
         .update({
           balance: newBalance,
@@ -255,7 +255,7 @@ router.post("/tournament-entry", async (req, res) => {
     }
 
     // Check if user has sufficient balance
-    const { data: wallet, error: walletError } = await supabase
+    const { data: wallet, error: walletError } = await supabaseAdmin
       .from("user_wallets")
       .select("balance")
       .eq("user_id", user_id)
@@ -280,7 +280,7 @@ router.post("/tournament-entry", async (req, res) => {
     }
 
     // Create debit transaction
-    const { data: transaction, error: transactionError } = await supabase
+    const { data: transaction, error: transactionError } = await supabaseAdmin
       .from("wallet_transactions")
       .insert([
         {
@@ -298,7 +298,7 @@ router.post("/tournament-entry", async (req, res) => {
     if (transactionError) throw transactionError;
 
     // Update wallet balance
-    const { data: updatedWallet, error: updateError } = await supabase
+    const { data: updatedWallet, error: updateError } = await supabaseAdmin
       .from("user_wallets")
       .update({
         balance: wallet.balance - entry_fee,
@@ -341,7 +341,7 @@ router.post("/tournament-prize", async (req, res) => {
     }
 
     // Create credit transaction
-    const { data: transaction, error: transactionError } = await supabase
+    const { data: transaction, error: transactionError } = await supabaseAdmin
       .from("wallet_transactions")
       .insert([
         {
@@ -359,7 +359,7 @@ router.post("/tournament-prize", async (req, res) => {
     if (transactionError) throw transactionError;
 
     // Update wallet balance
-    let { data: currentWallet, error: fetchError } = await supabase
+    let { data: currentWallet, error: fetchError } = await supabaseAdmin
       .from("user_wallets")
       .select("balance")
       .eq("user_id", user_id)
@@ -369,7 +369,7 @@ router.post("/tournament-prize", async (req, res) => {
 
     if (fetchError && fetchError.code === "PGRST116") {
       // Wallet doesn't exist, create one
-      const { data: newWallet, error: createError } = await supabase
+      const { data: newWallet, error: createError } = await supabaseAdmin
         .from("user_wallets")
         .insert([
           {
@@ -390,7 +390,7 @@ router.post("/tournament-prize", async (req, res) => {
       // Update existing wallet
       const newBalance = currentWallet.balance + prize_amount;
 
-      const { data: updated, error: updateError } = await supabase
+      const { data: updated, error: updateError } = await supabaseAdmin
         .from("user_wallets")
         .update({
           balance: newBalance,
@@ -442,7 +442,7 @@ router.post("/add-credits", async (req, res) => {
     }
 
     // Create credit transaction
-    const { data: transaction, error: transactionError } = await supabase
+    const { data: transaction, error: transactionError } = await supabaseAdmin
       .from("wallet_transactions")
       .insert([
         {
@@ -459,7 +459,7 @@ router.post("/add-credits", async (req, res) => {
     if (transactionError) throw transactionError;
 
     // Update wallet balance
-    let { data: currentWallet, error: fetchError } = await supabase
+    let { data: currentWallet, error: fetchError } = await supabaseAdmin
       .from("user_wallets")
       .select("balance")
       .eq("user_id", user_id)
@@ -469,7 +469,7 @@ router.post("/add-credits", async (req, res) => {
 
     if (fetchError && fetchError.code === "PGRST116") {
       // Wallet doesn't exist, create one
-      const { data: newWallet, error: createError } = await supabase
+      const { data: newWallet, error: createError } = await supabaseAdmin
         .from("user_wallets")
         .insert([
           {
@@ -490,7 +490,7 @@ router.post("/add-credits", async (req, res) => {
       // Update existing wallet
       const newBalance = currentWallet.balance + amount;
 
-      const { data: updated, error: updateError } = await supabase
+      const { data: updated, error: updateError } = await supabaseAdmin
         .from("user_wallets")
         .update({
           balance: newBalance,
@@ -542,7 +542,7 @@ router.post("/tournament-refund", async (req, res) => {
     }
 
     // Create refund transaction
-    const { data: transaction, error: transactionError } = await supabase
+    const { data: transaction, error: transactionError } = await supabaseAdmin
       .from("wallet_transactions")
       .insert([
         {
@@ -559,7 +559,7 @@ router.post("/tournament-refund", async (req, res) => {
     if (transactionError) throw transactionError;
 
     // Update wallet balance
-    let { data: currentWallet, error: fetchError } = await supabase
+    let { data: currentWallet, error: fetchError } = await supabaseAdmin
       .from("user_wallets")
       .select("balance")
       .eq("user_id", user_id)
@@ -569,7 +569,7 @@ router.post("/tournament-refund", async (req, res) => {
 
     if (fetchError && fetchError.code === "PGRST116") {
       // Wallet doesn't exist, create one
-      const { data: newWallet, error: createError } = await supabase
+      const { data: newWallet, error: createError } = await supabaseAdmin
         .from("user_wallets")
         .insert([
           {
@@ -590,7 +590,7 @@ router.post("/tournament-refund", async (req, res) => {
       // Update existing wallet
       const newBalance = currentWallet.balance + refund_amount;
 
-      const { data: updated, error: updateError } = await supabase
+      const { data: updated, error: updateError } = await supabaseAdmin
         .from("user_wallets")
         .update({
           balance: newBalance,

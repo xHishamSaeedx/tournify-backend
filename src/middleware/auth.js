@@ -1,4 +1,4 @@
-const { supabase } = require("../config/supabase");
+const { supabase, supabaseAdmin } = require("../config/supabase");
 
 // Middleware to verify JWT token
 const verifyToken = async (req, res, next) => {
@@ -52,7 +52,7 @@ const verifyToken = async (req, res, next) => {
 
     // Optional: Get user from database for additional data
     try {
-      const { data: dbUser, error } = await supabase
+      const { data: dbUser, error } = await supabaseAdmin
         .from("users")
         .select("*")
         .eq("player_id", userData.id)
@@ -87,7 +87,7 @@ const ensureUserExists = async (req, res, next) => {
     }
 
     // Check if user exists in database
-    const { data: existingUser, error } = await supabase
+    const { data: existingUser, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("player_id", req.user.id)

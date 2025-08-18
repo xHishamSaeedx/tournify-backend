@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const { supabase } = require("../config/supabase");
+const { supabaseAdmin } = require("../config/supabase");
 const { verifyToken, ensureUserExists } = require("../middleware/auth");
 
 // GET all tournaments (public)
 router.get("/", async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .select("*")
       .order("created_at", { ascending: false });
@@ -17,10 +17,11 @@ router.get("/", async (req, res) => {
     const tournamentsWithHosts = await Promise.all(
       data.map(async (tournament) => {
         // Get actual participant count for this tournament
-        const { count: currentParticipants, error: countError } = await supabase
-          .from("valorant_deathmatch_participants")
-          .select("*", { count: "exact", head: true })
-          .eq("room_id", tournament.tournament_id);
+        const { count: currentParticipants, error: countError } =
+          await supabaseAdmin
+            .from("valorant_deathmatch_participants")
+            .select("*", { count: "exact", head: true })
+            .eq("room_id", tournament.tournament_id);
 
         if (countError) {
           console.error(
@@ -33,7 +34,7 @@ router.get("/", async (req, res) => {
 
         let host = null;
         if (tournament.host_id) {
-          const { data: hostData, error: hostError } = await supabase
+          const { data: hostData, error: hostError } = await supabaseAdmin
             .from("users")
             .select("player_id, username, display_name, avatar_url")
             .eq("player_id", tournament.host_id)
@@ -81,7 +82,7 @@ router.get("/host/:hostId", verifyToken, ensureUserExists, async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .select("*")
       .eq("host_id", hostId)
@@ -93,10 +94,11 @@ router.get("/host/:hostId", verifyToken, ensureUserExists, async (req, res) => {
     const tournamentsWithHosts = await Promise.all(
       data.map(async (tournament) => {
         // Get actual participant count for this tournament
-        const { count: currentParticipants, error: countError } = await supabase
-          .from("valorant_deathmatch_participants")
-          .select("*", { count: "exact", head: true })
-          .eq("room_id", tournament.tournament_id);
+        const { count: currentParticipants, error: countError } =
+          await supabaseAdmin
+            .from("valorant_deathmatch_participants")
+            .select("*", { count: "exact", head: true })
+            .eq("room_id", tournament.tournament_id);
 
         if (countError) {
           console.error(
@@ -109,7 +111,7 @@ router.get("/host/:hostId", verifyToken, ensureUserExists, async (req, res) => {
 
         let host = null;
         if (tournament.host_id) {
-          const { data: hostData, error: hostError } = await supabase
+          const { data: hostData, error: hostError } = await supabaseAdmin
             .from("users")
             .select("player_id, username, display_name, avatar_url")
             .eq("player_id", tournament.host_id)
@@ -147,7 +149,7 @@ router.get("/host/:hostId", verifyToken, ensureUserExists, async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .select("*")
       .eq("tournament_id", id)
@@ -163,10 +165,11 @@ router.get("/:id", async (req, res) => {
     }
 
     // Get actual participant count
-    const { count: currentParticipants, error: countError } = await supabase
-      .from("valorant_deathmatch_participants")
-      .select("*", { count: "exact", head: true })
-      .eq("room_id", id);
+    const { count: currentParticipants, error: countError } =
+      await supabaseAdmin
+        .from("valorant_deathmatch_participants")
+        .select("*", { count: "exact", head: true })
+        .eq("room_id", id);
 
     if (countError) {
       console.error("Error counting participants:", countError);
@@ -179,7 +182,7 @@ router.get("/:id", async (req, res) => {
       current_players: currentParticipants || 0,
     };
     if (data.host_id) {
-      const { data: hostData, error: hostError } = await supabase
+      const { data: hostData, error: hostError } = await supabaseAdmin
         .from("users")
         .select("player_id, username, display_name, avatar_url")
         .eq("player_id", data.host_id)
@@ -236,10 +239,11 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
     const newMatchStartTime = new Date(match_start_time);
 
     // Get all existing tournaments by this host
-    const { data: existingTournaments, error: existingError } = await supabase
-      .from("valorant_deathmatch_rooms")
-      .select("match_start_time")
-      .eq("host_id", currentHostId);
+    const { data: existingTournaments, error: existingError } =
+      await supabaseAdmin
+        .from("valorant_deathmatch_rooms")
+        .select("match_start_time")
+        .eq("host_id", currentHostId);
 
     if (existingError) throw existingError;
 
@@ -308,7 +312,7 @@ router.post("/", verifyToken, ensureUserExists, async (req, res) => {
       email: req.user.email,
     });
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .insert([tournamentData])
       .select()
@@ -345,7 +349,7 @@ router.put("/:id", verifyToken, ensureUserExists, async (req, res) => {
     const updateData = req.body;
 
     // Optional: Check if user is the host or has admin rights
-    const { data: existingTournament, error: fetchError } = await supabase
+    const { data: existingTournament, error: fetchError } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .select("host_id")
       .eq("tournament_id", id)
@@ -361,7 +365,7 @@ router.put("/:id", verifyToken, ensureUserExists, async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .update(updateData)
       .eq("tournament_id", id)
@@ -398,7 +402,7 @@ router.delete("/:id", verifyToken, ensureUserExists, async (req, res) => {
     const { id } = req.params;
 
     // Optional: Check if user is the host or has admin rights
-    const { data: existingTournament, error: fetchError } = await supabase
+    const { data: existingTournament, error: fetchError } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .select("host_id")
       .eq("tournament_id", id)
@@ -414,7 +418,7 @@ router.delete("/:id", verifyToken, ensureUserExists, async (req, res) => {
       });
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .delete()
       .eq("tournament_id", id);
@@ -442,7 +446,7 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
     const playerId = req.user.player_id || req.user.id;
 
     // Check if user has a complete profile
-    const { data: playerData, error: playerError } = await supabase
+    const { data: playerData, error: playerError } = await supabaseAdmin
       .from("users")
       .select(
         `
@@ -462,7 +466,7 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
     }
 
     // Get Valorant data separately to match the players endpoint structure
-    const { data: valorantData, error: valorantError } = await supabase
+    const { data: valorantData, error: valorantError } = await supabaseAdmin
       .from("valorant_users")
       .select("valorant_name, valorant_tag")
       .eq("user_id", playerId)
@@ -484,7 +488,7 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
     }
 
     // Check if tournament exists and is not full
-    const { data: tournament, error: tournamentError } = await supabase
+    const { data: tournament, error: tournamentError } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .select("tournament_id, capacity, match_start_time")
       .eq("tournament_id", tournamentId)
@@ -516,7 +520,7 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
 
     // Check if user is already a participant
     const { data: existingParticipant, error: participantError } =
-      await supabase
+      await supabaseAdmin
         .from("valorant_deathmatch_participants")
         .select("player_id")
         .eq("player_id", playerId)
@@ -536,10 +540,11 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
     }
 
     // Check current participant count
-    const { count: currentParticipants, error: countError } = await supabase
-      .from("valorant_deathmatch_participants")
-      .select("*", { count: "exact", head: true })
-      .eq("room_id", tournamentId);
+    const { count: currentParticipants, error: countError } =
+      await supabaseAdmin
+        .from("valorant_deathmatch_participants")
+        .select("*", { count: "exact", head: true })
+        .eq("room_id", tournamentId);
 
     if (countError) throw countError;
 
@@ -552,7 +557,7 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
     }
 
     // Add participant to tournament
-    const { data: newParticipant, error: joinError } = await supabase
+    const { data: newParticipant, error: joinError } = await supabaseAdmin
       .from("valorant_deathmatch_participants")
       .insert({
         player_id: playerId,
@@ -564,7 +569,7 @@ router.post("/:id/join", verifyToken, ensureUserExists, async (req, res) => {
     if (joinError) throw joinError;
 
     // Update tournament current_players count
-    const { error: updateError } = await supabase
+    const { error: updateError } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .update({
         current_players: currentParticipants + 1,
@@ -598,7 +603,7 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
     const playerId = req.user.player_id || req.user.id;
 
     // Get tournament details to check match start time
-    const { data: tournament, error: tournamentError } = await supabase
+    const { data: tournament, error: tournamentError } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .select("match_start_time, joining_fee")
       .eq("tournament_id", tournamentId)
@@ -628,7 +633,7 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
     }
 
     // Check if user is a participant
-    const { data: participant, error: participantError } = await supabase
+    const { data: participant, error: participantError } = await supabaseAdmin
       .from("valorant_deathmatch_participants")
       .select("player_id")
       .eq("player_id", playerId)
@@ -651,7 +656,7 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
     if (joiningFee > 0 && refundAmount > 0) {
       try {
         // Create refund transaction
-        const { data: refundTx, error: txError } = await supabase
+        const { data: refundTx, error: txError } = await supabaseAdmin
           .from("wallet_transactions")
           .insert([
             {
@@ -669,7 +674,7 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
         if (txError) throw txError;
 
         // Update wallet balance (create wallet if missing)
-        let { data: currentWallet, error: fetchError } = await supabase
+        let { data: currentWallet, error: fetchError } = await supabaseAdmin
           .from("user_wallets")
           .select("balance")
           .eq("user_id", playerId)
@@ -677,7 +682,7 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
 
         if (fetchError && fetchError.code === "PGRST116") {
           // Create new wallet with refund amount
-          const { error: createError } = await supabase
+          const { error: createError } = await supabaseAdmin
             .from("user_wallets")
             .insert([
               {
@@ -692,7 +697,7 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
           throw fetchError;
         } else {
           const newBalance = (currentWallet?.balance || 0) + refundAmount;
-          const { error: updateError } = await supabase
+          const { error: updateError } = await supabaseAdmin
             .from("user_wallets")
             .update({
               balance: newBalance,
@@ -708,7 +713,7 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
     }
 
     // Remove participant from tournament
-    const { error: leaveError } = await supabase
+    const { error: leaveError } = await supabaseAdmin
       .from("valorant_deathmatch_participants")
       .delete()
       .eq("player_id", playerId)
@@ -717,13 +722,14 @@ router.post("/:id/leave", verifyToken, ensureUserExists, async (req, res) => {
     if (leaveError) throw leaveError;
 
     // Update tournament current_players count
-    const { count: currentParticipants, error: countError } = await supabase
-      .from("valorant_deathmatch_participants")
-      .select("*", { count: "exact", head: true })
-      .eq("room_id", tournamentId);
+    const { count: currentParticipants, error: countError } =
+      await supabaseAdmin
+        .from("valorant_deathmatch_participants")
+        .select("*", { count: "exact", head: true })
+        .eq("room_id", tournamentId);
 
     if (!countError) {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin
         .from("valorant_deathmatch_rooms")
         .update({
           current_players: currentParticipants,
@@ -760,7 +766,7 @@ router.get(
     try {
       const { id: tournamentId } = req.params;
 
-      const { data: participants, error } = await supabase
+      const { data: participants, error } = await supabaseAdmin
         .from("valorant_deathmatch_participants")
         .select(
           `
@@ -810,7 +816,7 @@ router.get(
       const { id: tournamentId } = req.params;
       const playerId = req.user.player_id || req.user.id;
 
-      const { data: participant, error } = await supabase
+      const { data: participant, error } = await supabaseAdmin
         .from("valorant_deathmatch_participants")
         .select("player_id, joined_at")
         .eq("player_id", playerId)
@@ -845,11 +851,12 @@ router.get("/joined/me", verifyToken, ensureUserExists, async (req, res) => {
     const playerId = req.user.player_id || req.user.id;
 
     // First, get all room_ids where the user is a participant
-    const { data: participantData, error: participantError } = await supabase
-      .from("valorant_deathmatch_participants")
-      .select("room_id, joined_at")
-      .eq("player_id", playerId)
-      .order("joined_at", { ascending: false });
+    const { data: participantData, error: participantError } =
+      await supabaseAdmin
+        .from("valorant_deathmatch_participants")
+        .select("room_id, joined_at")
+        .eq("player_id", playerId)
+        .order("joined_at", { ascending: false });
 
     if (participantError) throw participantError;
 
@@ -865,7 +872,7 @@ router.get("/joined/me", verifyToken, ensureUserExists, async (req, res) => {
     const roomIds = participantData.map((p) => p.room_id);
 
     // Get tournament details for those rooms
-    const { data: tournaments, error: tournamentError } = await supabase
+    const { data: tournaments, error: tournamentError } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .select("*")
       .in("tournament_id", roomIds)
@@ -883,10 +890,11 @@ router.get("/joined/me", verifyToken, ensureUserExists, async (req, res) => {
     const transformedTournaments = await Promise.all(
       tournaments.map(async (tournament) => {
         // Get actual participant count for this tournament
-        const { count: currentParticipants, error: countError } = await supabase
-          .from("valorant_deathmatch_participants")
-          .select("*", { count: "exact", head: true })
-          .eq("room_id", tournament.tournament_id);
+        const { count: currentParticipants, error: countError } =
+          await supabaseAdmin
+            .from("valorant_deathmatch_participants")
+            .select("*", { count: "exact", head: true })
+            .eq("room_id", tournament.tournament_id);
 
         if (countError) {
           console.error(
@@ -899,7 +907,7 @@ router.get("/joined/me", verifyToken, ensureUserExists, async (req, res) => {
 
         let host = null;
         if (tournament.host_id) {
-          const { data: hostData, error: hostError } = await supabase
+          const { data: hostData, error: hostError } = await supabaseAdmin
             .from("users")
             .select("player_id, username, display_name, avatar_url")
             .eq("player_id", tournament.host_id)
@@ -952,7 +960,7 @@ router.post(
       const userId = req.user.player_id || req.user.id;
 
       // First, verify the tournament exists and the user is the host
-      const { data: tournament, error: tournamentError } = await supabase
+      const { data: tournament, error: tournamentError } = await supabaseAdmin
         .from("valorant_deathmatch_rooms")
         .select("*")
         .eq("tournament_id", tournamentId)
@@ -991,10 +999,11 @@ router.post(
       }
 
       // Get all participants for this tournament
-      const { data: participants, error: participantsError } = await supabase
-        .from("valorant_deathmatch_participants")
-        .select("player_id")
-        .eq("room_id", tournamentId);
+      const { data: participants, error: participantsError } =
+        await supabaseAdmin
+          .from("valorant_deathmatch_participants")
+          .select("player_id")
+          .eq("room_id", tournamentId);
 
       if (participantsError) throw participantsError;
 
@@ -1006,7 +1015,7 @@ router.post(
       ) {
         for (const participant of participants) {
           // Get current wallet balance first
-          const { data: currentWallet, error: fetchError } = await supabase
+          const { data: currentWallet, error: fetchError } = await supabaseAdmin
             .from("user_wallets")
             .select("balance")
             .eq("user_id", participant.player_id)
@@ -1014,7 +1023,7 @@ router.post(
 
           if (fetchError && fetchError.code === "PGRST116") {
             // Wallet doesn't exist, create one with refund amount
-            const { error: createError } = await supabase
+            const { error: createError } = await supabaseAdmin
               .from("user_wallets")
               .insert({
                 user_id: participant.player_id,
@@ -1038,7 +1047,7 @@ router.post(
             );
           } else {
             // Update existing wallet balance
-            const { error: walletError } = await supabase
+            const { error: walletError } = await supabaseAdmin
               .from("user_wallets")
               .update({
                 balance: (currentWallet.balance || 0) + tournament.joining_fee,
@@ -1056,7 +1065,7 @@ router.post(
           }
 
           // Create transaction record
-          const { error: transactionError } = await supabase
+          const { error: transactionError } = await supabaseAdmin
             .from("wallet_transactions")
             .insert({
               user_id: participant.player_id,
@@ -1079,7 +1088,7 @@ router.post(
       }
 
       // Delete all participants for this tournament
-      const { error: deleteParticipantsError } = await supabase
+      const { error: deleteParticipantsError } = await supabaseAdmin
         .from("valorant_deathmatch_participants")
         .delete()
         .eq("room_id", tournamentId);
@@ -1090,7 +1099,7 @@ router.post(
       }
 
       // Delete the tournament itself
-      const { error: deleteTournamentError } = await supabase
+      const { error: deleteTournamentError } = await supabaseAdmin
         .from("valorant_deathmatch_rooms")
         .delete()
         .eq("tournament_id", tournamentId);
