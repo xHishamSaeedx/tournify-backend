@@ -1,5 +1,5 @@
 const cron = require("node-cron");
-const { supabase } = require("../config/supabase");
+const { supabaseAdmin } = require("../config/supabase");
 
 // Function to allocate prizes to winners
 async function allocatePrizesToWinners(
@@ -11,13 +11,14 @@ async function allocatePrizesToWinners(
     console.log("🏆 Allocating prizes to winners...");
 
     // Get tournament prize details
-    const { data: tournamentDetails, error: tournamentError } = await supabase
-      .from("valorant_deathmatch_rooms")
-      .select(
-        "prize_first_pct, prize_second_pct, prize_third_pct, prize_pool, name, host_id, joining_fee, capacity, host_percentage"
-      )
-      .eq("tournament_id", tournamentId)
-      .single();
+    const { data: tournamentDetails, error: tournamentError } =
+      await supabaseAdmin
+        .from("valorant_deathmatch_rooms")
+        .select(
+          "prize_first_pct, prize_second_pct, prize_third_pct, prize_pool, name, host_id, joining_fee, capacity, host_percentage"
+        )
+        .eq("tournament_id", tournamentId)
+        .single();
 
     if (tournamentError) {
       console.error(
@@ -95,22 +96,23 @@ async function allocatePrizesToWinners(
         const userId = valorantUser.user_id;
 
         // Create credit transaction
-        const { data: transaction, error: transactionError } = await supabase
-          .from("wallet_transactions")
-          .insert([
-            {
-              user_id: userId,
-              type: "tournament_prize",
-              amount: prizeAmount,
-              description: `${position}${getOrdinalSuffix(
-                position
-              )} place prize for ${tournamentName}`,
-              ref_id: tournamentId,
-              created_at: new Date().toISOString(),
-            },
-          ])
-          .select()
-          .single();
+        const { data: transaction, error: transactionError } =
+          await supabaseAdmin
+            .from("wallet_transactions")
+            .insert([
+              {
+                user_id: userId,
+                type: "tournament_prize",
+                amount: prizeAmount,
+                description: `${position}${getOrdinalSuffix(
+                  position
+                )} place prize for ${tournamentName}`,
+                ref_id: tournamentId,
+                created_at: new Date().toISOString(),
+              },
+            ])
+            .select()
+            .single();
 
         if (transactionError) {
           console.error(
@@ -121,7 +123,7 @@ async function allocatePrizesToWinners(
         }
 
         // Update wallet balance
-        let { data: currentWallet, error: fetchError } = await supabase
+        let { data: currentWallet, error: fetchError } = await supabaseAdmin
           .from("user_wallets")
           .select("balance")
           .eq("user_id", userId)
@@ -131,7 +133,7 @@ async function allocatePrizesToWinners(
 
         if (fetchError && fetchError.code === "PGRST116") {
           // Wallet doesn't exist, create one
-          const { data: newWallet, error: createError } = await supabase
+          const { data: newWallet, error: createError } = await supabaseAdmin
             .from("user_wallets")
             .insert([
               {
@@ -160,15 +162,16 @@ async function allocatePrizesToWinners(
           continue;
         } else {
           // Update existing wallet
-          const { data: updatedWalletData, error: updateError } = await supabase
-            .from("user_wallets")
-            .update({
-              balance: currentWallet.balance + prizeAmount,
-              last_updated: new Date().toISOString(),
-            })
-            .eq("user_id", userId)
-            .select()
-            .single();
+          const { data: updatedWalletData, error: updateError } =
+            await supabaseAdmin
+              .from("user_wallets")
+              .update({
+                balance: currentWallet.balance + prizeAmount,
+                last_updated: new Date().toISOString(),
+              })
+              .eq("user_id", userId)
+              .select()
+              .single();
 
           if (updateError) {
             console.error(
@@ -216,7 +219,7 @@ async function allocatePrizesToWinners(
         if (hostShare > 0) {
           // Create credit transaction for host
           const { data: hostTransaction, error: hostTransactionError } =
-            await supabase
+            await supabaseAdmin
               .from("wallet_transactions")
               .insert([
                 {
@@ -239,7 +242,7 @@ async function allocatePrizesToWinners(
           } else {
             // Update host's wallet balance
             let { data: currentHostWallet, error: fetchHostError } =
-              await supabase
+              await supabaseAdmin
                 .from("user_wallets")
                 .select("balance")
                 .eq("user_id", host_id)
@@ -250,7 +253,7 @@ async function allocatePrizesToWinners(
             if (fetchHostError && fetchHostError.code === "PGRST116") {
               // Host wallet doesn't exist, create one
               const { data: newHostWallet, error: createHostError } =
-                await supabase
+                await supabaseAdmin
                   .from("user_wallets")
                   .insert([
                     {
@@ -276,7 +279,7 @@ async function allocatePrizesToWinners(
             } else {
               // Update existing host wallet
               const { data: updatedHostWalletData, error: updateHostError } =
-                await supabase
+                await supabaseAdmin
                   .from("user_wallets")
                   .update({
                     balance: currentHostWallet.balance + hostShare,
@@ -352,11 +355,12 @@ async function refundJoiningFees(tournamentId, valorantUsers) {
     console.log("💰 Refunding joining fees to all participants...");
 
     // Get tournament details to find joining fee
-    const { data: tournamentDetails, error: tournamentError } = await supabase
-      .from("valorant_deathmatch_rooms")
-      .select("joining_fee, name")
-      .eq("tournament_id", tournamentId)
-      .single();
+    const { data: tournamentDetails, error: tournamentError } =
+      await supabaseAdmin
+        .from("valorant_deathmatch_rooms")
+        .select("joining_fee, name")
+        .eq("tournament_id", tournamentId)
+        .single();
 
     if (tournamentError) {
       console.error(
@@ -384,7 +388,7 @@ async function refundJoiningFees(tournamentId, valorantUsers) {
       const userId = valorantUser.user_id;
 
       // Create refund transaction
-      const { data: transaction, error: transactionError } = await supabase
+      const { data: transaction, error: transactionError } = await supabaseAdmin
         .from("wallet_transactions")
         .insert([
           {
@@ -408,7 +412,7 @@ async function refundJoiningFees(tournamentId, valorantUsers) {
       }
 
       // Update wallet balance
-      let { data: currentWallet, error: fetchError } = await supabase
+      let { data: currentWallet, error: fetchError } = await supabaseAdmin
         .from("user_wallets")
         .select("balance")
         .eq("user_id", userId)
@@ -418,7 +422,7 @@ async function refundJoiningFees(tournamentId, valorantUsers) {
 
       if (fetchError && fetchError.code === "PGRST116") {
         // Wallet doesn't exist, create one
-        const { data: newWallet, error: createError } = await supabase
+        const { data: newWallet, error: createError } = await supabaseAdmin
           .from("user_wallets")
           .insert([
             {
@@ -447,15 +451,16 @@ async function refundJoiningFees(tournamentId, valorantUsers) {
         continue;
       } else {
         // Update existing wallet
-        const { data: updatedWalletData, error: updateError } = await supabase
-          .from("user_wallets")
-          .update({
-            balance: currentWallet.balance + joining_fee,
-            last_updated: new Date().toISOString(),
-          })
-          .eq("user_id", userId)
-          .select()
-          .single();
+        const { data: updatedWalletData, error: updateError } =
+          await supabaseAdmin
+            .from("user_wallets")
+            .update({
+              balance: currentWallet.balance + joining_fee,
+              last_updated: new Date().toISOString(),
+            })
+            .eq("user_id", userId)
+            .select()
+            .single();
 
         if (updateError) {
           console.error(
@@ -531,7 +536,7 @@ async function processTournament(tournament_id) {
     console.log(`🔄 Processing tournament: ${tournament_id}`);
 
     // First, get all participants for this tournament using room_id
-    const { data: participants, error: participantsError } = await supabase
+    const { data: participants, error: participantsError } = await supabaseAdmin
       .from("valorant_deathmatch_participants")
       .select("player_id")
       .eq("room_id", tournament_id);
@@ -547,19 +552,21 @@ async function processTournament(tournament_id) {
     const playerIds = participants.map((participant) => participant.player_id);
 
     // Get valorant user information for these player_ids
-    const { data: valorantUsers, error: valorantUsersError } = await supabase
-      .from("valorant_users")
-      .select("user_id, valorant_name, valorant_tag, platform, region")
-      .in("user_id", playerIds);
+    const { data: valorantUsers, error: valorantUsersError } =
+      await supabaseAdmin
+        .from("valorant_users")
+        .select("user_id, valorant_name, valorant_tag, platform, region")
+        .in("user_id", playerIds);
 
     if (valorantUsersError) throw valorantUsersError;
 
     // Get tournament details (match_start_time and match_map) from valorant_deathmatch_rooms
-    const { data: tournamentDetails, error: tournamentError } = await supabase
-      .from("valorant_deathmatch_rooms")
-      .select("match_start_time, match_map")
-      .eq("tournament_id", tournament_id)
-      .single();
+    const { data: tournamentDetails, error: tournamentError } =
+      await supabaseAdmin
+        .from("valorant_deathmatch_rooms")
+        .select("match_start_time, match_map")
+        .eq("tournament_id", tournament_id)
+        .single();
 
     if (tournamentError) throw tournamentError;
 
@@ -698,7 +705,7 @@ async function processTournament(tournament_id) {
 // Function to mark tournament as processed
 async function markTournamentAsProcessed(tournament_id, status = "valid") {
   try {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .update({ processed: true, status: status })
       .eq("tournament_id", tournament_id);
@@ -727,7 +734,7 @@ async function processPendingTournaments() {
     console.log("🕐 Checking for pending tournaments to process...");
 
     // Query for tournaments that need processing
-    const { data: pendingTournaments, error } = await supabase
+    const { data: pendingTournaments, error } = await supabaseAdmin
       .from("valorant_deathmatch_rooms")
       .select("tournament_id, match_result_time")
       .lt("match_result_time", new Date().toISOString())
