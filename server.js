@@ -108,7 +108,7 @@ const {
 } = require("./src/services/prizePoolCalculator");
 
 // Import Supabase config
-const { supabase } = require("./src/config/supabase");
+const { supabase, supabaseAdmin } = require("./src/config/supabase");
 
 // Middleware
 app.use(helmet()); // Security headers
@@ -208,7 +208,7 @@ app.post("/auth/verify", async (req, res) => {
 
       try {
         // Check if player record exists
-        const { data: playerData, error: fetchError } = await supabase
+        const { data: playerData, error: fetchError } = await supabaseAdmin
           .from("users")
           .select(
             `
@@ -243,11 +243,12 @@ app.post("/auth/verify", async (req, res) => {
         }
 
         // Check and assign user role
-        const { data: existingRole, error: roleFetchError } = await supabase
-          .from("user_roles")
-          .select("*")
-          .eq("user_id", userData.id)
-          .single();
+        const { data: existingRole, error: roleFetchError } =
+          await supabaseAdmin
+            .from("user_roles")
+            .select("*")
+            .eq("user_id", userData.id)
+            .single();
 
         if (roleFetchError && roleFetchError.code !== "PGRST116") {
           console.error("❌ Error fetching user role:", {
@@ -262,7 +263,7 @@ app.post("/auth/verify", async (req, res) => {
           console.log("🔄 Assigning default player role...");
 
           // Assign default player role with upsert to handle race conditions
-          const { data: newRole, error: roleInsertError } = await supabase
+          const { data: newRole, error: roleInsertError } = await supabaseAdmin
             .from("user_roles")
             .upsert(
               [
